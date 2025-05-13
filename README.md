@@ -41,8 +41,8 @@
 
 1. **Clone the repository**  
    ```bash
-   git clone https://github.com/yourusername/auto-translate-manager.git
-   cd auto-translate-manager
+   git clone https://github.com/g0at1/auto-translate.git
+   cd auto-translate
    ```
 2. **(Optional) Create and activate a virtual environment**  
    ```bash
