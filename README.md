@@ -8,6 +8,8 @@
 - Automatically translate via DeepL (if enabled) or enter translations manually  
 - Save updates back to both JSON files  
 
+App is still clunky and not fully tested, but it works for basic use cases. It is very much work in progress.
+
 ---
 
 ## Table of Contents
@@ -22,9 +24,8 @@
    - [Step 3: Browse Translations](#step-3-browse-translations)  
    - [Step 4: Add New Translation](#step-4-add-new-translation)  
    - [Step 5: Save Changes](#step-5-save-changes)  
-6. [Project Structure](#project-structure)  
-7. [Contributing](#contributing)  
-8. [License](#license)  
+6. [Contributing](#contributing)  
+7. [License](#license)  
 
 ---
 
@@ -34,6 +35,8 @@
 - The following Python packages (see `requirements.txt`):  
   - `tkinter` (GUI)  
   - `requests` (for DeepL API calls, if auto-translate is used)  
+  - `deepl` (for DeepL API calls, if auto-translate is used)
+  - `dotenv` (for loading environment variables)
 
 ---
 
@@ -61,7 +64,6 @@
 
 If you want to use automatic translation via the DeepL API, set your API key as an environment variable in the .env:
 
-- **macOS/Linux**  
   ```bash
   DEEPL_API_KEY="your_deepl_api_key_here"
   ```
@@ -87,13 +89,13 @@ This will launch the Translation Manager GUI.
 
 When prompted, choose your Polish translation file (`pl.json`) from the `i18n` folder:
 
-![Select Polish File](./docs/screenshots/select_pl_file.png)
+![Select Polish File](./screenshots/select_pl_file.png)
 
 ### Step 2: Select English File
 
 Next, select your English translation file (`en.json`):
 
-![Select English File](./docs/screenshots/select_en_file.png)
+![Select English File](./screenshots/select_en_file.png)
 
 ### Step 3: Browse Translations
 
@@ -102,7 +104,7 @@ Once both files are loaded, you’ll see a tree view of all translation keys. Ea
 - **[PL]** – the Polish text  
 - **[EN]** – the English text  
 
-![Browse Translations](./docs/screenshots/translation_manager_view.png)
+![Browse Translations](./screenshots/browse_keys.png)
 
 ### Step 4: Add New Translation
 
@@ -114,7 +116,7 @@ Once both files are loaded, you’ll see a tree view of all translation keys. Ea
 3. (Optional) Check **Auto-translate to English** to use the DeepL API.  
 4. Click **OK** to add the entry.
 
-![Add New Translation](./docs/screenshots/add_new_dialog.png)
+![Add New Translation](./screenshots/add_new_key.png)
 
 ### Step 5: Save Changes
 
