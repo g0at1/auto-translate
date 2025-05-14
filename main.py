@@ -100,7 +100,7 @@ def get_nested(d, keys):
 class TranslationApp(tk.Tk):
     def __init__(self, pl_path, en_path):
         super().__init__()
-        self.title(f"Translation Manager - {Path(pl_path).name} & {Path(en_path).name}")
+        self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
         self.center_window()
 
