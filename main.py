@@ -2,11 +2,13 @@
 import json
 import threading
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog, filedialog
+from tkinter import messagebox, simpledialog, filedialog
 from pathlib import Path
 import deepl
 from dotenv import load_dotenv
 import os
+from ttkthemes import ThemedTk, ThemedStyle
+from tkinter import ttk
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -39,6 +41,12 @@ def translate_text(text, source_lang="PL", target_lang="EN-GB"):
 
 class AddDialog(simpledialog.Dialog):
     def body(self, master):
+        toplevel = master.winfo_toplevel()
+        style = ThemedStyle(toplevel)
+        style.set_theme("equilux")
+        bg = style.lookup("TFrame", "background")
+        master.configure(background=bg)
+        toplevel.configure(background=bg)
         ttk.Label(master, text="Key path (dot separated):").grid(
             row=0, column=0, sticky="w"
         )
@@ -59,13 +67,11 @@ class AddDialog(simpledialog.Dialog):
             state = "disabled" if self.auto_var.get() else "normal"
             self.en_entry.config(state=state)
 
-        chk = tk.Checkbutton(
+        chk = ttk.Checkbutton(
             master,
             text="Auto-translate to English",
             variable=self.auto_var,
             command=toggle_en,
-            onvalue=True,
-            offvalue=False,
         )
         chk.grid(row=3, column=1, sticky="w")
         toggle_en()
@@ -79,6 +85,19 @@ class AddDialog(simpledialog.Dialog):
             "auto": self.auto_var.get(),
             "en": self.en_entry.get().strip(),
         }
+
+    def buttonbox(self):
+        box = ttk.Frame(self)
+
+        ok = ttk.Button(box, text="Submit", width=10, command=self.ok, default="active")
+        ok.pack(side="left", padx=5, pady=5)
+        cancel = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
+        cancel.pack(side="left", padx=5, pady=5)
+
+        self.bind("<Return>", self.ok)
+        self.bind("<Escape>", self.cancel)
+
+        box.pack()
 
 
 def set_nested(d, keys, value):
@@ -97,9 +116,9 @@ def get_nested(d, keys):
     return cur if not isinstance(cur, dict) else ""
 
 
-class TranslationApp(tk.Tk):
+class TranslationApp(ThemedTk):
     def __init__(self, pl_path, en_path):
-        super().__init__()
+        super().__init__(theme="equilux")
         self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
         self.center_window()

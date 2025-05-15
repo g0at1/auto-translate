@@ -2,3 +2,4 @@ black @ git+https://github.com/psf/black@8dc912774e322a2cd46f691f19fb91d2237d06e
 deepl~=1.22.0
 dotenv~=0.9.9
 python-dotenv~=1.1.0
+ttkthemes~=3.2.2
