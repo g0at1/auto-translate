@@ -40,6 +40,10 @@ def translate_text(text, source_lang="PL", target_lang="EN-GB"):
 
 
 class AddDialog(simpledialog.Dialog):
+    def __init__(self, parent, initial_key="", **kwargs):
+        self.initial_key = initial_key
+        super().__init__(parent, **kwargs)
+
     def body(self, master):
         toplevel = master.winfo_toplevel()
         style = ThemedStyle(toplevel)
@@ -52,6 +56,8 @@ class AddDialog(simpledialog.Dialog):
         )
         self.key_entry = ttk.Entry(master, width=50)
         self.key_entry.grid(row=0, column=1)
+        if self.initial_key:
+            self.key_entry.insert(0, self.initial_key + ".")
 
         ttk.Label(master, text="Polish text:").grid(row=1, column=0, sticky="w")
         self.pl_entry = ttk.Entry(master, width=50)
@@ -137,6 +143,8 @@ class TranslationApp(ThemedTk):
         self.tree.heading("#0", text="Translation Keys")
         self.tree.pack(fill="both", expand=True)
 
+        self.tree.bind("<Button-1>", self.on_tree_click)
+
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x")
         ttk.Button(btn_frame, text="Add New", command=self.add_new).pack(
@@ -146,6 +154,11 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_tree_click(self, event):
+        row = self.tree.identify_row(event.y)
+        if not row:
+            self.tree.selection_remove(self.tree.selection())
 
     def center_window(self):
         self.update_idletasks()
@@ -181,7 +194,9 @@ class TranslationApp(ThemedTk):
         add_nodes("", self.pl_data)
 
     def add_new(self):
-        dlg = AddDialog(self)
+        sel = self.tree.selection()
+        initial = self.tree.set(sel[0], "full_key") if sel else ""
+        dlg = AddDialog(self, initial_key=initial)
         if not dlg.result:
             return
 
