@@ -61,15 +61,18 @@ class AddDialog(simpledialog.Dialog):
         self.en_entry = ttk.Entry(master, width=50)
         self.en_entry.grid(row=2, column=1)
 
-        self.auto_var = tk.BooleanVar(master, False)
+        self.auto_var = tk.BooleanVar(master, True)
 
         def toggle_en():
-            state = "disabled" if self.auto_var.get() else "normal"
-            self.en_entry.config(state=state)
+            if self.auto_var.get():
+                self.en_entry.delete(0, tk.END)
+                self.en_entry.config(state="disabled")
+            else:
+                self.en_entry.config(state="normal")
 
         chk = ttk.Checkbutton(
             master,
-            text="Auto-translate to English",
+            text="Use DeepL to translate",
             variable=self.auto_var,
             command=toggle_en,
         )
@@ -179,7 +182,10 @@ class TranslationApp(ThemedTk):
 
     def add_new(self):
         dlg = AddDialog(self)
-        if not dlg.result or not dlg.result["key"] or not dlg.result["pl"]:
+        if not dlg.result:
+            return
+
+        if not dlg.result["key"] or not dlg.result["pl"]:
             messagebox.showerror("Error", "Key and Polish text are required")
             return
 
@@ -220,14 +226,14 @@ def main():
     root.withdraw()
 
     pl_file = filedialog.askopenfilename(
-        title="Select Polish translation file (pl.json)",
+        title="Select Polish translation file",
         filetypes=[("JSON Files", "*.json")],
     )
     if not pl_file:
         return
 
     en_file = filedialog.askopenfilename(
-        title="Select English translation file (en.json)",
+        title="Select English translation file",
         filetypes=[("JSON Files", "*.json")],
     )
     if not en_file:
