@@ -14,6 +14,8 @@ load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
 translator = deepl.Translator(DEEPL_API_KEY)
 
+CONFIG_PATH = Path.home() / ".translation_app_config.json"
+
 
 def load_json(path):
     try:
@@ -128,14 +130,13 @@ def get_nested(d, keys):
 class TranslationApp(ThemedTk):
     def __init__(self, pl_path, en_path):
         super().__init__(theme="equilux")
+        self.pl_path = pl_path
+        self.en_path = en_path
+        self._load_data()
+
         self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
         self.center_window()
-
-        self.pl_path = pl_path
-        self.en_path = en_path
-        self.pl_data = load_json(pl_path)
-        self.en_data = load_json(en_path)
 
         self.tree = ttk.Treeview(self)
         self.tree["columns"] = ("full_key",)
@@ -150,10 +151,17 @@ class TranslationApp(ThemedTk):
         ttk.Button(btn_frame, text="Add New", command=self.add_new).pack(
             side="left", padx=5, pady=5
         )
+        ttk.Button(btn_frame, text="Change Files", command=self.change_files).pack(
+            side="left", padx=5, pady=5
+        )
         ttk.Button(btn_frame, text="Save", command=self.save).pack(side="left", padx=5)
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _load_data(self):
+        self.pl_data = load_json(self.pl_path)
+        self.en_data = load_json(self.en_path)
 
     def on_tree_click(self, event):
         row = self.tree.identify_row(event.y)
@@ -197,7 +205,7 @@ class TranslationApp(ThemedTk):
         sel = self.tree.selection()
         initial = self.tree.set(sel[0], "full_key") if sel else ""
         dlg = AddDialog(self, initial_key=initial)
-        if not dlg.result:
+        if not getattr(dlg, "result", None):
             return
 
         if not dlg.result["key"] or not dlg.result["pl"]:
@@ -230,6 +238,27 @@ class TranslationApp(ThemedTk):
         set_nested(self.en_data, parts, en_text)
         self.insert_all()
 
+    def change_files(self):
+        new_pl = filedialog.askopenfilename(
+            title="Select Polish translation file",
+            filetypes=[("JSON Files", "*.json")],
+        )
+        if not new_pl:
+            return
+        new_en = filedialog.askopenfilename(
+            title="Select English translation file",
+            filetypes=[("JSON Files", "*.json")],
+        )
+        if not new_en:
+            return
+        self.pl_path, self.en_path = new_pl, new_en
+        save_json({"pl_file": self.pl_path, "en_file": self.en_path}, CONFIG_PATH)
+        self._load_data()
+        self.title(
+            f"Language Files - {Path(self.pl_path).name} & {Path(self.en_path).name}"
+        )
+        self.insert_all()
+
     def save(self):
         save_json(self.pl_data, self.pl_path)
         save_json(self.en_data, self.en_path)
@@ -239,21 +268,22 @@ class TranslationApp(ThemedTk):
 def main():
     root = tk.Tk()
     root.withdraw()
-
-    pl_file = filedialog.askopenfilename(
-        title="Select Polish translation file",
-        filetypes=[("JSON Files", "*.json")],
-    )
-    if not pl_file:
+    config = load_json(CONFIG_PATH)
+    pl_file = config.get("pl_file")
+    en_file = config.get("en_file")
+    if not pl_file or not Path(pl_file).is_file():
+        pl_file = filedialog.askopenfilename(
+            title="Select Polish translation file",
+            filetypes=[("JSON Files", "*.json")],
+        )
+    if not en_file or not Path(en_file).is_file():
+        en_file = filedialog.askopenfilename(
+            title="Select English translation file",
+            filetypes=[("JSON Files", "*.json")],
+        )
+    if not pl_file or not en_file:
         return
-
-    en_file = filedialog.askopenfilename(
-        title="Select English translation file",
-        filetypes=[("JSON Files", "*.json")],
-    )
-    if not en_file:
-        return
-
+    save_json({"pl_file": pl_file, "en_file": en_file}, CONFIG_PATH)
     app = TranslationApp(pl_file, en_file)
     app.mainloop()
 
