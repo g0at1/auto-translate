@@ -24,6 +24,13 @@ jobs:
           python-version: '3.9'
           cache: pip
 
+      - name: Start Xvfb
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          screen: 0
+          resolution: 1920x1080
+          depth: 24
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
