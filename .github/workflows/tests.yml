@@ -11,6 +11,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
 
     steps:
       - name: Checkout repository
