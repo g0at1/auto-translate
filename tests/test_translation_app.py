@@ -262,3 +262,9 @@ def test_main_saves_config(monkeypatch, tmp_path):
     monkeypatch.setattr(app, "TranslationApp", DummyApp)
     app.main()
     assert saved and saved[0][1] == config
+
+def test_load_json_malformed(tmp_path):
+    path = tmp_path / "bad.json"
+    path.write_text("{not: valid json", encoding="utf-8")
+    loaded = app.load_json(path)
+    assert loaded == {}
