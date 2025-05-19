@@ -24,18 +24,14 @@ jobs:
           python-version: '3.9'
           cache: pip
 
-      - name: Start Xvfb
-        uses: GabrielBB/xvfb-action@v1
-        with:
-          screen: 0
-          resolution: 1920x1080
-          depth: 24
-
-      - name: Install dependencies
+      - name: Install system & Python dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest
 
-      - name: Run tests
-        run: pytest --maxfail=1 --disable-warnings -q
+      - name: Run tests under Xvfb
+        run: |
+          xvfb-run -s "-screen 0 1920x1080x24" pytest --maxfail=1 --disable-warnings -q
