@@ -112,9 +112,12 @@ class AddDialog(simpledialog.Dialog):
 
 
 def set_nested(d, keys, value):
+    cur = d
     for k in keys[:-1]:
-        d = d.setdefault(k, {})
-    d[keys[-1]] = value
+        if k not in cur or not isinstance(cur[k], dict):
+            cur[k] = {}
+        cur = cur[k]
+    cur[keys[-1]] = value
 
 
 def get_nested(d, keys):
