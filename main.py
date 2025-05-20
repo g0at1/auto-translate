@@ -168,7 +168,9 @@ class TranslationApp(ThemedTk):
 
     def on_tree_click(self, event):
         row = self.tree.identify_row(event.y)
-        if not row:
+        if row:
+            self.tree.selection_set(row)
+        else:
             self.tree.selection_remove(self.tree.selection())
 
     def center_window(self):
@@ -206,7 +208,15 @@ class TranslationApp(ThemedTk):
 
     def add_new(self):
         sel = self.tree.selection()
-        initial = self.tree.set(sel[0], "full_key") if sel else ""
+        initial = ""
+        if sel:
+            row = sel[0]
+            while row:
+                full = self.tree.set(row, "full_key")
+                if full:
+                    initial = full
+                    break
+                row = self.tree.parent(row)
         dlg = AddDialog(self, initial_key=initial)
         if not getattr(dlg, "result", None):
             return
