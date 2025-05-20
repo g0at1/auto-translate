@@ -42,8 +42,19 @@ def translate_text(text, source_lang="PL", target_lang="EN-GB"):
 
 
 class AddDialog(simpledialog.Dialog):
-    def __init__(self, parent, initial_key="", **kwargs):
+    def __init__(
+        self,
+        parent,
+        initial_key="",
+        initial_pl="",
+        initial_en="",
+        auto_default=True,
+        **kwargs,
+    ):
         self.initial_key = initial_key
+        self.initial_pl = initial_pl
+        self.initial_en = initial_en
+        self.auto_default = auto_default
         super().__init__(parent, **kwargs)
 
     def body(self, master):
@@ -59,17 +70,21 @@ class AddDialog(simpledialog.Dialog):
         self.key_entry = ttk.Entry(master, width=50)
         self.key_entry.grid(row=0, column=1)
         if self.initial_key:
-            self.key_entry.insert(0, self.initial_key + ".")
+            self.key_entry.insert(0, self.initial_key)
 
         ttk.Label(master, text="Polish text:").grid(row=1, column=0, sticky="w")
         self.pl_entry = ttk.Entry(master, width=50)
         self.pl_entry.grid(row=1, column=1)
+        if self.initial_pl:
+            self.pl_entry.insert(0, self.initial_pl)
 
         ttk.Label(master, text="English text:").grid(row=2, column=0, sticky="w")
         self.en_entry = ttk.Entry(master, width=50)
         self.en_entry.grid(row=2, column=1)
+        if self.initial_en:
+            self.en_entry.insert(0, self.initial_en)
 
-        self.auto_var = tk.BooleanVar(master, True)
+        self.auto_var = tk.BooleanVar(master, self.auto_default)
 
         def toggle_en():
             if self.auto_var.get():
@@ -165,6 +180,12 @@ class TranslationApp(ThemedTk):
             side="left", padx=5, pady=5
         )
         ttk.Button(btn_frame, text="Save", command=self.save).pack(side="left", padx=5)
+        ttk.Button(btn_frame, text="Edit", command=self.edit_selected).pack(
+            side="left", padx=5, pady=5
+        )
+        ttk.Button(btn_frame, text="Delete", command=self.delete_selected).pack(
+            side="left", padx=5, pady=5
+        )
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
@@ -221,7 +242,7 @@ class TranslationApp(ThemedTk):
             while row:
                 full = self.tree.set(row, "full_key")
                 if full:
-                    initial = full
+                    initial = full + "."
                     break
                 row = self.tree.parent(row)
         dlg = AddDialog(self, initial_key=initial)
@@ -243,6 +264,59 @@ class TranslationApp(ThemedTk):
         else:
             manual_en = dlg.result.get("en", "").strip()
             set_nested(self.en_data, parts, manual_en)
+            self.insert_all()
+
+    def edit_selected(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        node = sel[0]
+        full = self.tree.set(node, "full_key")
+        if not full:
+            node = self.tree.parent(node)
+            full = self.tree.set(node, "full_key")
+        if not full:
+            return
+
+        parts = full.split(".")
+        current_pl = get_nested(self.pl_data, parts)
+        current_en = get_nested(self.en_data, parts)
+        dlg = AddDialog(
+            self,
+            initial_key=full,
+            initial_pl=current_pl,
+            initial_en=current_en,
+            auto_default=False,
+            title="Edit Translation",
+        )
+        if not getattr(dlg, "result", None):
+            return
+
+        new_key = dlg.result["key"]
+        new_parts = new_key.split(".")
+        # If key changed, move subtree
+        if new_parts != parts:
+            # extract pl subtree
+            pl_val = get_nested(self.pl_data, parts)
+            en_val = get_nested(self.en_data, parts)
+            # remove old
+            self.remove_nested(self.pl_data, parts)
+            self.remove_nested(self.en_data, parts)
+            parts = new_parts
+            # set new subtree
+            set_nested(self.pl_data, parts, pl_val)
+            set_nested(self.en_data, parts, en_val)
+
+        # Update texts
+        set_nested(self.pl_data, parts, dlg.result["pl"])
+        if dlg.result["auto"]:
+            threading.Thread(
+                target=self.translate_and_insert,
+                args=(parts, dlg.result["pl"]),
+                daemon=True,
+            ).start()
+        else:
+            set_nested(self.en_data, parts, dlg.result.get("en", ""))
             self.insert_all()
 
     def translate_and_insert(self, parts, pl_text):
@@ -283,6 +357,44 @@ class TranslationApp(ThemedTk):
         save_json(self.pl_data, self.pl_path)
         save_json(self.en_data, self.en_path)
         messagebox.showinfo("Saved", f"Updated:\n{self.pl_path}\n{self.en_path}")
+
+    @staticmethod
+    def remove_nested(d, keys):
+        if not keys:
+            return
+        cur = d
+        parents = []
+        for k in keys[:-1]:
+            parents.append((cur, k))
+            cur = cur.get(k, {})
+            if not isinstance(cur, dict):
+                return
+        cur.pop(keys[-1], None)
+        for parent, key in reversed(parents):
+            if not parent[key]:
+                parent.pop(key)
+
+    def delete_selected(self):
+        sel = self.tree.selection()
+        if not sel:
+            return
+        node = sel[0]
+        full = self.tree.set(node, "full_key")
+        if not full:
+            node = self.tree.parent(node)
+            full = self.tree.set(node, "full_key")
+        if not full:
+            return
+
+        if not messagebox.askyesno(
+            "Confirm Delete", f"Are you sure to remove the key:\n{full}?"
+        ):
+            return
+
+        parts = full.split(".")
+        self.remove_nested(self.pl_data, parts)
+        self.remove_nested(self.en_data, parts)
+        self.insert_all()
 
 
 def main():
