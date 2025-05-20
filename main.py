@@ -371,7 +371,7 @@ class TranslationApp(ThemedTk):
                 return
         cur.pop(keys[-1], None)
         for parent, key in reversed(parents):
-            if not parent[key]:
+            if parent[key] == {}:
                 parent.pop(key)
 
     def delete_selected(self):
