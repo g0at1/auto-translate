@@ -269,3 +269,100 @@ def test_load_json_malformed(tmp_path):
     path.write_text("{not: valid json", encoding="utf-8")
     loaded = app.load_json(path)
     assert loaded == {}
+
+
+def make_translation_app_with_tree(pl_data, en_data, full_key):
+    ta = app.TranslationApp.__new__(app.TranslationApp)
+    ta.pl_data = pl_data
+    ta.en_data = en_data
+
+    ta.insert_all = lambda: None
+
+    class FakeTree:
+        def __init__(self):
+            self._selection = ["n1"]
+
+        def selection(self):
+            return self._selection
+
+        def identify_row(self, y):
+            return "n1"
+
+        def set(self, row, col):
+            return full_key
+
+        def parent(self, row):
+            return None
+
+    ta.tree = FakeTree()
+    return ta
+
+
+def test_delete_selected_removes_key(monkeypatch):
+    pl = {"foo": {"bar": "PL"}}
+    en = {"foo": {"bar": "EN"}}
+    full_key = "foo.bar"
+    ta = make_translation_app_with_tree(pl, en, full_key)
+
+    monkeypatch.setattr(messagebox, "askyesno", lambda title, msg: True)
+
+    ta.delete_selected()
+
+    assert ta.pl_data == {}
+    assert ta.en_data == {}
+
+
+def test_delete_selected_cancelled(monkeypatch):
+    pl = {"x": {"y": "val"}}
+    en = {"x": {"y": "val"}}
+    full_key = "x.y"
+    ta = make_translation_app_with_tree(pl.copy(), en.copy(), full_key)
+
+    monkeypatch.setattr(messagebox, "askyesno", lambda title, msg: False)
+
+    ta.delete_selected()
+
+    assert ta.pl_data == {"x": {"y": "val"}}
+    assert ta.en_data == {"x": {"y": "val"}}
+
+
+def test_edit_selected_changes_key_and_translations(monkeypatch):
+    pl = {"foo": {"bar": "PL_old"}}
+    en = {"foo": {"bar": "EN_old"}}
+    full_key = "foo.bar"
+
+    ta = app.TranslationApp.__new__(app.TranslationApp)
+    ta.pl_data = pl
+    ta.en_data = en
+
+    ta.insert_all = lambda: None
+
+    class FakeTree:
+        def selection(self):
+            return ["n1"]
+
+        def identify_row(self, y):
+            return "n1"
+
+        def set(self, row, col):
+            return full_key
+
+        def parent(self, row):
+            return None
+
+    ta.tree = FakeTree()
+
+    fake_result = {"key": "alpha.beta", "pl": "PL_new", "auto": False, "en": "EN_new"}
+
+    class FakeDialog:
+        def __init__(self, *args, **kwargs):
+            self.result = fake_result
+
+    monkeypatch.setattr(app, "AddDialog", FakeDialog)
+
+    ta.edit_selected()
+
+    assert "foo" not in ta.pl_data
+    assert "foo" not in ta.en_data
+    assert ta.pl_data["alpha"]["beta"] == "PL_new"
+    assert ta.en_data["alpha"]["beta"] == "EN_new"
