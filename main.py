@@ -136,12 +136,19 @@ class TranslationApp(ThemedTk):
         self.pl_path = pl_path
         self.en_path = en_path
         self._load_data()
+        style = ThemedStyle(self)
+        style.configure("Custom.Treeview")
+        style.map(
+            "Custom.Treeview",
+            background=[("selected", "#007acc")],
+            foreground=[("selected", "white")],
+        )
 
         self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
         self.center_window()
 
-        self.tree = ttk.Treeview(self)
+        self.tree = ttk.Treeview(self, style="Custom.Treeview", selectmode="browse")
         self.tree["columns"] = ("full_key",)
         self.tree.column("full_key", width=0, stretch=False)
         self.tree.heading("#0", text="Translation Keys")
