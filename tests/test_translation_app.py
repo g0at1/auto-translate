@@ -366,3 +366,79 @@ def test_edit_selected_changes_key_and_translations(monkeypatch):
     assert "foo" not in ta.en_data
     assert ta.pl_data["alpha"]["beta"] == "PL_new"
     assert ta.en_data["alpha"]["beta"] == "EN_new"
+
+
+# -----------------------------
+# Tests for preserving & restoring expanded nodes in the Treeview
+# -----------------------------
+class FakeTree:
+    def __init__(self, structure, open_keys):
+        self.structure = structure
+        self._open = {node: (node in open_keys) for node in structure}
+        self._full_key = {node: node for node in structure}
+
+    def get_children(self, item=""):
+        return self.structure.get(item, [])
+
+    def item(self, item, option=None, **kwargs):
+        if "open" in kwargs:
+            self._open[item] = kwargs["open"]
+        if option == "open":
+            return self._open[item]
+        return None
+
+    def set(self, item, column):
+        if column == "full_key":
+            return self._full_key[item]
+        return None
+
+
+class DummyApp(app.TranslationApp):
+    def __init__(self):
+        pass
+
+
+def test_get_expanded_keys_simple():
+    structure = {"": ["A", "B"], "A": ["A1"], "A1": [], "B": ["B1"], "B1": []}
+    open_keys = {"A", "B1"}
+    fake = FakeTree(structure, open_keys)
+    ta = DummyApp()
+    ta.tree = fake
+
+    got = app.TranslationApp.get_expanded_keys(ta)
+    assert got == open_keys
+
+
+def test_restore_expanded_keys_simple():
+    structure = {"": ["X", "Y"], "X": [], "Y": []}
+    fake = FakeTree(structure, {"X"})
+    ta = DummyApp()
+    ta.tree = fake
+
+    for node in ["X", "Y"]:
+        fake._open[node] = False
+
+    app.TranslationApp.restore_expanded_keys(ta, {"X"})
+
+    assert fake._open["X"] is True
+    assert fake._open["Y"] is False
+
+
+def test_roundtrip_expand_and_restore():
+    structure = {"": ["N1", "N2"], "N1": ["N1a", "N1b"], "N1a": [], "N1b": [], "N2": []}
+    initial_open = {"N1", "N1b"}
+    fake = FakeTree(structure, initial_open)
+    ta = DummyApp()
+    ta.tree = fake
+
+    saved = app.TranslationApp.get_expanded_keys(ta)
+    assert saved == initial_open
+
+    for n in initial_open:
+        fake._open[n] = False
+
+    app.TranslationApp.restore_expanded_keys(ta, saved)
+
+    for n in ["N1", "N1b"]:
+        assert fake._open[n] is True
+    assert fake._open["N2"] is False

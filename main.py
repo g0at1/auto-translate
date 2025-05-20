@@ -215,7 +215,33 @@ class TranslationApp(ThemedTk):
         self.destroy()
         self.quit()
 
+    def get_expanded_keys(self):
+        expanded = set()
+        for item in self.tree.get_children(""):
+            self._collect_expanded(item, expanded)
+        return expanded
+
+    def _collect_expanded(self, item, expanded):
+        if self.tree.item(item, "open"):
+            key = self.tree.set(item, "full_key")
+            if key:
+                expanded.add(key)
+        for child in self.tree.get_children(item):
+            self._collect_expanded(child, expanded)
+
+    def restore_expanded_keys(self, expanded):
+        def _restore(value):
+            key = self.tree.set(value, "full_key")
+            if key in expanded:
+                self.tree.item(value, open=True)
+            for child in self.tree.get_children(value):
+                _restore(child)
+
+        for item in self.tree.get_children(""):
+            _restore(item)
+
     def insert_all(self):
+        expanded = self.get_expanded_keys()
         self.tree.delete(*self.tree.get_children())
 
         def add_nodes(parent, data, prefix=""):
@@ -233,6 +259,7 @@ class TranslationApp(ThemedTk):
                     self.tree.insert(node, "end", text=f"[EN] {display_en}")
 
         add_nodes("", self.pl_data)
+        self.restore_expanded_keys(expanded)
 
     def add_new(self):
         sel = self.tree.selection()
