@@ -185,6 +185,14 @@ class TranslationApp(ThemedTk):
 
         self.tree.bind("<Button-1>", self.on_tree_click)
 
+        self.menu = tk.Menu(self, tearoff=0)
+        self.menu.add_command(label="Copy Key", command=self.copy_key)
+        self.menu.add_command(label="Copy PL Value", command=self.copy_pl)
+        self.menu.add_command(label="Copy EN Value", command=self.copy_en)
+        self.tree.bind("<Button-3>", self.show_context_menu)
+        self.tree.bind("<Button-2>", self.show_context_menu)
+        self.tree.bind("<Control-Button-1>", self.show_context_menu)
+
         btn_frame = ttk.Frame(self)
         btn_frame.pack(fill="x")
         ttk.Button(btn_frame, text="Add New", command=self.add_new).pack(
@@ -214,6 +222,41 @@ class TranslationApp(ThemedTk):
             self.tree.selection_set(row)
         else:
             self.tree.selection_remove(self.tree.selection())
+
+    def show_context_menu(self, event):
+        row = self.tree.identify_row(event.y)
+        if not row:
+            return
+        self.tree.selection_set(row)
+        full = self.tree.set(row, "full_key")
+        if not full:
+            parent = self.tree.parent(row)
+            full = self.tree.set(parent, "full_key")
+        parts = full.split(".")
+        pl_val = get_nested(self.pl_data, parts)
+        en_val = get_nested(self.en_data, parts)
+        self.menu.entryconfig(1, state="normal" if pl_val else "disabled")
+        self.menu.entryconfig(2, state="normal" if en_val else "disabled")
+        self._menu_parts = parts
+        self.menu.post(event.x_root, event.y_root)
+        self.menu.grab_release()
+
+    def copy_key(self):
+        key = ".".join(self._menu_parts)
+        self.clipboard_clear()
+        self.clipboard_append(key)
+
+    def copy_pl(self):
+        val = get_nested(self.pl_data, self._menu_parts)
+        if val:
+            self.clipboard_clear()
+            self.clipboard_append(val)
+
+    def copy_en(self):
+        val = get_nested(self.en_data, self._menu_parts)
+        if val:
+            self.clipboard_clear()
+            self.clipboard_append(val)
 
     def center_window(self):
         self.update_idletasks()
