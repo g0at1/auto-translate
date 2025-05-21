@@ -442,3 +442,98 @@ def test_roundtrip_expand_and_restore():
     for n in ["N1", "N1b"]:
         assert fake._open[n] is True
     assert fake._open["N2"] is False
+
+
+# -----------------------------
+# Tests for AddDialog.validate()
+# -----------------------------
+import pytest
+from tkinter import Tk
+from tkinter import messagebox
+import main as app
+
+
+class FakeEntry:
+    def __init__(self, text):
+        self._text = text
+
+    def get(self):
+        return self._text
+
+    def delete(self, a=None, b=None):
+        pass
+
+    def config(self, **kwargs):
+        pass
+
+
+@pytest.fixture(autouse=True)
+def suppress_tk(monkeypatch):
+    monkeypatch.setattr(
+        app.simpledialog.Dialog, "__init__", lambda *args, **kwargs: None
+    )
+    yield
+
+
+@pytest.fixture
+def dlg(monkeypatch):
+    root = Tk()
+    dlg = app.AddDialog.__new__(app.AddDialog)
+    dlg.key_entry = FakeEntry("")
+    dlg.pl_entry = FakeEntry("")
+    dlg.en_entry = FakeEntry("")
+    dlg.auto_var = app.tk.BooleanVar(root, False)
+    return dlg
+
+
+def test_validate_empty_key_and_pl(monkeypatch, dlg):
+    calls = []
+    monkeypatch.setattr(
+        messagebox, "showerror", lambda title, msg: calls.append((title, msg))
+    )
+    dlg.key_entry = FakeEntry("")  # empty key
+    dlg.pl_entry = FakeEntry("")  # empty pl
+    assert dlg.validate() is False
+    assert calls[-1][1] == "Polish text is required" or "Key is required"
+
+
+def test_validate_empty_key(monkeypatch, dlg):
+    calls = []
+    monkeypatch.setattr(
+        messagebox, "showerror", lambda title, msg: calls.append((title, msg))
+    )
+    dlg.key_entry = FakeEntry("")  # empty key
+    dlg.pl_entry = FakeEntry("tekst")
+    assert dlg.validate() is False
+    assert calls[-1] == ("Error", "Key is required")
+
+
+def test_validate_empty_pl(monkeypatch, dlg):
+    calls = []
+    monkeypatch.setattr(
+        messagebox, "showerror", lambda title, msg: calls.append((title, msg))
+    )
+    dlg.key_entry = FakeEntry("foo")
+    dlg.pl_entry = FakeEntry("")  # empty pl
+    assert dlg.validate() is False
+    assert calls[-1] == ("Error", "Polish text is required")
+
+
+def test_validate_key_endswith_dot(monkeypatch, dlg):
+    calls = []
+    monkeypatch.setattr(
+        messagebox, "showerror", lambda title, msg: calls.append((title, msg))
+    )
+    dlg.key_entry = FakeEntry("foo.bar.")
+    dlg.pl_entry = FakeEntry("tekst")
+    assert dlg.validate() is False
+    assert calls[-1] == ("Error", "Invalid key foo.bar.")
+
+
+def test_validate_success(monkeypatch, dlg):
+    monkeypatch.setattr(
+        messagebox, "showerror", lambda title, msg: pytest.skip("should not be called")
+    )
+    dlg.key_entry = FakeEntry("valid.key")
+    dlg.pl_entry = FakeEntry("tekst")
+    assert dlg.validate() is True

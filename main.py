@@ -104,6 +104,20 @@ class AddDialog(simpledialog.Dialog):
 
         return self.key_entry
 
+    def validate(self):
+        key = self.key_entry.get().strip()
+        pl = self.pl_entry.get().strip()
+        if key.endswith("."):
+            messagebox.showerror("Error", f"Invalid key {key}")
+            return False
+        if not key:
+            messagebox.showerror("Error", "Key is required")
+            return False
+        if not pl:
+            messagebox.showerror("Error", "Polish text is required")
+            return False
+        return True
+
     def apply(self):
         self.result = {
             "key": self.key_entry.get().strip(),
@@ -274,10 +288,6 @@ class TranslationApp(ThemedTk):
                 row = self.tree.parent(row)
         dlg = AddDialog(self, initial_key=initial)
         if not getattr(dlg, "result", None):
-            return
-
-        if not dlg.result["key"] or not dlg.result["pl"]:
-            messagebox.showerror("Error", "Key and Polish text are required")
             return
 
         parts = dlg.result["key"].split(".")
