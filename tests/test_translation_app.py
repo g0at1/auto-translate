@@ -494,7 +494,7 @@ def test_validate_empty_key_and_pl(monkeypatch, dlg):
     dlg.key_entry = FakeEntry("")  # empty key
     dlg.pl_entry = FakeEntry("")  # empty pl
     assert dlg.validate() is False
-    assert calls[-1][1] == "Polish text is required" or "Key is required"
+    assert calls[-1][1] in ("Polish text is required", "Key is required")
 
 
 def test_validate_empty_key(monkeypatch, dlg):
