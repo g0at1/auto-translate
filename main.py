@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import os
 from ttkthemes import ThemedTk, ThemedStyle
 from tkinter import ttk
+from enums.menu_option_label_enum import MenuOptionLabelEnum
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -235,8 +236,14 @@ class TranslationApp(ThemedTk):
         parts = full.split(".")
         pl_val = get_nested(self.pl_data, parts)
         en_val = get_nested(self.en_data, parts)
-        self.menu.entryconfig(1, state="normal" if pl_val else "disabled")
-        self.menu.entryconfig(2, state="normal" if en_val else "disabled")
+        self.menu.entryconfig(
+            MenuOptionLabelEnum.LabelCopyPl.value,
+            state="normal" if pl_val else "disabled",
+        )
+        self.menu.entryconfig(
+            MenuOptionLabelEnum.LabelCopyEn.value,
+            state="normal" if en_val else "disabled",
+        )
         self._menu_parts = parts
         self.menu.post(event.x_root, event.y_root)
         self.menu.grab_release()
