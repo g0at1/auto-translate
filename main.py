@@ -430,7 +430,7 @@ class TranslationApp(ThemedTk):
             "old_pl": old_pl,
             "old_en": old_en,
             "new_pl": dlg.result["pl"],
-            "new_en": "",  # uzupełni się później
+            "new_en": "",
         }
         self.undo_stack.append(op)
         # If key changed, move subtree
