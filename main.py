@@ -376,7 +376,6 @@ class TranslationApp(ThemedTk):
 
         parts = dlg.result["key"].split(".")
         pl_text = dlg.result["pl"]
-        self.redo_stack.clear()
 
         op = {"action": ActionEnum.Add.value, "parts": parts, "pl": pl_text, "en": ""}
         self.undo_stack.append(op)
@@ -474,7 +473,10 @@ class TranslationApp(ThemedTk):
         set_nested(self.en_data, parts, en_text)
 
         for op in reversed(self.undo_stack):
-            if op["parts"] == parts:
+            if op["parts"] == parts or (
+                op["action"] == ActionEnum.Edit.value
+                and parts in (op.get("old_parts"), op.get("new_parts"))
+            ):
                 if op["action"] == ActionEnum.Add.value:
                     op["en"] = en_text
                 elif op["action"] == ActionEnum.Edit.value:
