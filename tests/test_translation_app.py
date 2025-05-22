@@ -275,6 +275,8 @@ def make_translation_app_with_tree(pl_data, en_data, full_key):
     ta = app.TranslationApp.__new__(app.TranslationApp)
     ta.pl_data = pl_data
     ta.en_data = en_data
+    ta.undo_stack = []
+    ta.redo_stack = []
 
     ta.insert_all = lambda: None
 
@@ -334,6 +336,8 @@ def test_edit_selected_changes_key_and_translations(monkeypatch):
     ta = app.TranslationApp.__new__(app.TranslationApp)
     ta.pl_data = pl
     ta.en_data = en
+    ta.redo_stack = []
+    ta.undo_stack = []
 
     ta.insert_all = lambda: None
 
