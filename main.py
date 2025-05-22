@@ -178,6 +178,14 @@ class TranslationApp(ThemedTk):
         self.geometry("600x400")
         self.center_window()
 
+        search_frame = ttk.Frame(self)
+        search_frame.pack(fill="x")
+        ttk.Label(search_frame, text="Search:").pack(side="left")
+        self.search_var = tk.StringVar(self)
+        self.search_var.trace_add("write", self.on_search)
+        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(5, 0))
+
         self.tree = ttk.Treeview(self, style="Custom.Treeview", selectmode="browse")
         self.tree["columns"] = ("full_key",)
         self.tree.column("full_key", width=0, stretch=False)
@@ -304,23 +312,42 @@ class TranslationApp(ThemedTk):
         for item in self.tree.get_children(""):
             _restore(item)
 
+    def on_search(self, *args):
+        self.insert_all()
+
     def insert_all(self):
+        search = self.search_var.get().strip().lower()
         expanded = self.get_expanded_keys()
         self.tree.delete(*self.tree.get_children())
 
         def add_nodes(parent, data, prefix=""):
             for key, val in sorted(data.items()):
                 full = f"{prefix}.{key}" if prefix else key
-                node = self.tree.insert(
-                    parent, "end", text=key, values=(full,), open=False
+                en_val = get_nested(self.en_data, full.split(".")) or ""
+                pl_val = val if not isinstance(val, dict) else ""
+                node_matches = (
+                    search in full.lower()
+                    or search in pl_val.lower()
+                    or search in en_val.lower()
+                    or not search
                 )
                 if isinstance(val, dict):
-                    add_nodes(node, val, full)
+                    for _, _ in val.items():
+                        pass
+                    node_id = self.tree.insert(
+                        parent, "end", text=key, values=(full,), open=(full in expanded)
+                    )
+                    add_nodes(node_id, val, full)
+                    if not self.tree.get_children(node_id) and not node_matches:
+                        self.tree.delete(node_id)
                 else:
-                    self.tree.insert(node, "end", text=f"[PL] {val}")
-                    en_val = get_nested(self.en_data, full.split("."))
-                    display_en = en_val or "(no translation)"
-                    self.tree.insert(node, "end", text=f"[EN] {display_en}")
+                    if node_matches:
+                        node = self.tree.insert(
+                            parent, "end", text=key, values=(full,), open=False
+                        )
+                        self.tree.insert(node, "end", text=f"[PL] {pl_val}")
+                        display_en = en_val or "(no translation)"
+                        self.tree.insert(node, "end", text=f"[EN] {display_en}")
 
         add_nodes("", self.pl_data)
         self.restore_expanded_keys(expanded)
