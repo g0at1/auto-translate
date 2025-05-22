@@ -537,3 +537,66 @@ def test_validate_success(monkeypatch, dlg):
     dlg.key_entry = FakeEntry("valid.key")
     dlg.pl_entry = FakeEntry("tekst")
     assert dlg.validate() is True
+
+
+# -----------------------------
+# Tests for copy functions
+# -----------------------------
+
+
+def make_app_for_copy():
+    """
+    Helper to create a TranslationApp instance with clipboard methods patched
+    and sample data for testing copy_key, copy_pl, and copy_en.
+    """
+    ta = app.TranslationApp.__new__(app.TranslationApp)
+    calls = []
+
+    def clear():
+        calls.append("clear")
+
+    def append(val):
+        calls.append(val)
+
+    ta.clipboard_clear = clear
+    ta.clipboard_append = append
+    ta._menu_parts = ["foo", "bar"]
+    ta.pl_data = {"foo": {"bar": "PL_val"}}
+    ta.en_data = {"foo": {"bar": "EN_val"}}
+    return ta, calls
+
+
+def test_copy_key():
+    ta, calls = make_app_for_copy()
+    ta.copy_key()
+    assert calls == ["clear", "foo.bar"]
+
+
+def test_copy_pl():
+    ta, calls = make_app_for_copy()
+    ta.copy_pl()
+    assert calls == ["clear", "PL_val"]
+
+
+def test_copy_en():
+    ta, calls = make_app_for_copy()
+    ta.copy_en()
+    assert calls == ["clear", "EN_val"]
+
+
+def test_copy_pl_no_value():
+    ta, calls = make_app_for_copy()
+    # Simulate no Polish translation
+    ta.pl_data = {"foo": {"bar": ""}}
+    calls.clear()
+    ta.copy_pl()
+    assert calls == []
+
+
+def test_copy_en_no_value():
+    ta, calls = make_app_for_copy()
+    # Simulate no English translation
+    ta.en_data = {"foo": {"bar": ""}}
+    calls.clear()
+    ta.copy_en()
+    assert calls == []
