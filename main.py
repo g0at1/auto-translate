@@ -10,6 +10,7 @@ import os
 from ttkthemes import ThemedTk, ThemedStyle
 from tkinter import ttk
 from enums.menu_option_label_enum import MenuOptionLabelEnum
+from enums.action_enum import ActionEnum
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -177,6 +178,11 @@ class TranslationApp(ThemedTk):
         self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
         self.center_window()
+        self.undo_stack = []
+        self.redo_stack = []
+        self.bind_all("<Command-z>", lambda e: self.undo_last())
+        self.bind_all("<Command-y>", lambda e: self.redo_last())
+        self.bind_all("<Control-z>", lambda e: self.undo_last())
 
         search_frame = ttk.Frame(self)
         search_frame.pack(fill="x")
@@ -353,6 +359,7 @@ class TranslationApp(ThemedTk):
         self.restore_expanded_keys(expanded)
 
     def add_new(self):
+        self.redo_stack.clear()
         sel = self.tree.selection()
         initial = ""
         if sel:
@@ -369,6 +376,9 @@ class TranslationApp(ThemedTk):
 
         parts = dlg.result["key"].split(".")
         pl_text = dlg.result["pl"]
+
+        op = {"action": ActionEnum.Add.value, "parts": parts, "pl": pl_text, "en": ""}
+        self.undo_stack.append(op)
         set_nested(self.pl_data, parts, pl_text)
 
         if dlg.result["auto"]:
@@ -377,10 +387,12 @@ class TranslationApp(ThemedTk):
             ).start()
         else:
             manual_en = dlg.result.get("en", "").strip()
+            op["en"] = manual_en
             set_nested(self.en_data, parts, manual_en)
             self.insert_all()
 
     def edit_selected(self):
+        self.redo_stack.clear()
         sel = self.tree.selection()
         if not sel:
             return
@@ -393,8 +405,11 @@ class TranslationApp(ThemedTk):
             return
 
         parts = full.split(".")
-        current_pl = get_nested(self.pl_data, parts)
-        current_en = get_nested(self.en_data, parts)
+        old_pl = get_nested(self.pl_data, parts)
+        old_en = get_nested(self.en_data, parts)
+
+        current_pl = old_pl or ""
+        current_en = old_en or ""
         dlg = AddDialog(
             self,
             initial_key=full,
@@ -408,6 +423,16 @@ class TranslationApp(ThemedTk):
 
         new_key = dlg.result["key"]
         new_parts = new_key.split(".")
+        op = {
+            "action": ActionEnum.Edit.value,
+            "old_parts": parts,
+            "new_parts": new_parts,
+            "old_pl": old_pl,
+            "old_en": old_en,
+            "new_pl": dlg.result["pl"],
+            "new_en": "",
+        }
+        self.undo_stack.append(op)
         # If key changed, move subtree
         if new_parts != parts:
             # extract pl subtree
@@ -430,6 +455,8 @@ class TranslationApp(ThemedTk):
                 daemon=True,
             ).start()
         else:
+            manual_en = dlg.result.get("en", "").strip()
+            op["new_en"] = manual_en
             set_nested(self.en_data, parts, dlg.result.get("en", ""))
             self.insert_all()
 
@@ -444,6 +471,18 @@ class TranslationApp(ThemedTk):
                 or ""
             )
         set_nested(self.en_data, parts, en_text)
+
+        for op in reversed(self.undo_stack):
+            if op["parts"] == parts or (
+                op["action"] == ActionEnum.Edit.value
+                and parts in (op.get("old_parts"), op.get("new_parts"))
+            ):
+                if op["action"] == ActionEnum.Add.value:
+                    op["en"] = en_text
+                elif op["action"] == ActionEnum.Edit.value:
+                    op["new_en"] = en_text
+                break
+
         self.insert_all()
 
     def change_files(self):
@@ -489,6 +528,7 @@ class TranslationApp(ThemedTk):
                 parent.pop(key)
 
     def delete_selected(self):
+        self.redo_stack.clear()
         sel = self.tree.selection()
         if not sel:
             return
@@ -506,8 +546,61 @@ class TranslationApp(ThemedTk):
             return
 
         parts = full.split(".")
+        old_pl = get_nested(self.pl_data, parts)
+        old_en = get_nested(self.en_data, parts)
+        self.undo_stack.append(
+            {"action": "delete", "parts": parts, "old_pl": old_pl, "old_en": old_en}
+        )
         self.remove_nested(self.pl_data, parts)
         self.remove_nested(self.en_data, parts)
+        self.insert_all()
+
+    def undo_last(self):
+        if not self.undo_stack:
+            messagebox.showinfo("Undo", "Nothing to undo.")
+            return
+        op = self.undo_stack.pop()
+        self.redo_stack.append(op)
+        action = op["action"]
+        if action == ActionEnum.Add.value:
+            self.remove_nested(self.pl_data, op["parts"])
+            self.remove_nested(self.en_data, op["parts"])
+            messagebox.showinfo("Undo", "Undo add operation.")
+        elif action == ActionEnum.Delete.value:
+            set_nested(self.pl_data, op["parts"], op["old_pl"])
+            set_nested(self.en_data, op["parts"], op["old_en"])
+            messagebox.showinfo("Undo", "Undo delete operation.")
+        elif action == ActionEnum.Edit.value:
+            self.remove_nested(self.pl_data, op["new_parts"])
+            self.remove_nested(self.en_data, op["new_parts"])
+            set_nested(self.pl_data, op["old_parts"], op["old_pl"])
+            set_nested(self.en_data, op["old_parts"], op["old_en"])
+            messagebox.showinfo("Undo", "Undo edit operation.")
+        self.insert_all()
+
+    def redo_last(self):
+        if not self.redo_stack:
+            messagebox.showinfo("Redo", "Nothing to redo.")
+            return
+        op = self.redo_stack.pop()
+        self.undo_stack.append(op)
+        action = op["action"]
+
+        if action == ActionEnum.Add.value:
+            set_nested(self.pl_data, op["parts"], op.get("pl") or "")
+            set_nested(self.en_data, op["parts"], op.get("en") or "")
+            messagebox.showinfo("Redo", "Redo add operation.")
+        elif action == ActionEnum.Delete.value:
+            self.remove_nested(self.pl_data, op["parts"])
+            self.remove_nested(self.en_data, op["parts"])
+            messagebox.showinfo("Redo", "Redo delete operation.")
+        elif action == ActionEnum.Edit.value:
+            self.remove_nested(self.pl_data, op["old_parts"])
+            self.remove_nested(self.en_data, op["old_parts"])
+            set_nested(self.pl_data, op["new_parts"], op["new_pl"])
+            set_nested(self.en_data, op["new_parts"], op["new_en"])
+            messagebox.showinfo("Redo", "Redo edit operation.")
+
         self.insert_all()
 
 
