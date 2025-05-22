@@ -335,7 +335,7 @@ class TranslationApp(ThemedTk):
                     for _, _ in val.items():
                         pass
                     node_id = self.tree.insert(
-                        parent, "end", text=key, values=(full,), open=False
+                        parent, "end", text=key, values=(full,), open=(full in expanded)
                     )
                     add_nodes(node_id, val, full)
                     if not self.tree.get_children(node_id) and not node_matches:
