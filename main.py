@@ -11,12 +11,16 @@ from ttkthemes import ThemedTk, ThemedStyle
 from tkinter import ttk
 from enums.menu_option_label_enum import MenuOptionLabelEnum
 from enums.action_enum import ActionEnum
+import logging
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
 translator = deepl.Translator(DEEPL_API_KEY)
 
 CONFIG_PATH = Path.home() / ".translation_app_config.json"
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 
 def load_json(path):
@@ -39,7 +43,7 @@ def translate_text(text, source_lang="PL", target_lang="EN-GB"):
         )
         return result.text
     except deepl.DeepLException as e:
-        print(f"DeepL translation error: {e}")
+        logging.error("DeepL translation error: %s", e, exc_info=True)
         return ""
 
 
@@ -174,6 +178,13 @@ class TranslationApp(ThemedTk):
             background=[("selected", "#007acc")],
             foreground=[("selected", "white")],
         )
+        style.map(
+            "TEntry",
+            fieldbackground=[("!disabled", "#222222")],
+            foreground=[("!disabled", "white")],
+            selectbackground=[("!disabled", "#007acc")],
+            selectforeground=[("!disabled", "white")],
+        )
 
         self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
         self.geometry("600x400")
@@ -189,7 +200,9 @@ class TranslationApp(ThemedTk):
         ttk.Label(search_frame, text="Search:").pack(side="left")
         self.search_var = tk.StringVar(self)
         self.search_var.trace_add("write", self.on_search)
-        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var)
+        self.search_entry = ttk.Entry(
+            search_frame, textvariable=self.search_var, style="TEntry"
+        )
         self.search_entry.pack(side="left", fill="x", expand=True, padx=(5, 0))
 
         self.tree = ttk.Treeview(self, style="Custom.Treeview", selectmode="browse")
