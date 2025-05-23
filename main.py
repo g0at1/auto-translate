@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import threading
 import tkinter as tk
 from tkinter import messagebox, simpledialog, filedialog
 from pathlib import Path
@@ -169,6 +168,13 @@ def get_nested(d, keys):
 class TranslationApp(ThemedTk):
     def __init__(self, pl_path, en_path, max_workers=5):
         super().__init__(theme="equilux")
+        self.menu_bar = tk.Menu(self)
+        self.config(menu=self.menu_bar)
+        help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        help_menu.add_command(label="Overview", command=self.show_overview)
+        help_menu.add_command(label="Keyboard Shortcuts", command=self.show_shortcuts)
+        help_menu.add_command(label="FAQ", command=self.show_faq)
+        self.menu_bar.add_cascade(label="Help", menu=help_menu)
         self.pl_path = pl_path
         self.en_path = en_path
         self._load_data()
@@ -241,6 +247,36 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    @staticmethod
+    def show_overview():
+        text = (
+            "This application allows you to browse, add, edit, and delete translation keys. "
+            "Polish (PL) and English (EN) values are displayed in a tree view. "
+            "Use the buttons to manage entries and the search box to filter keys."
+        )
+        messagebox.showinfo("Overview", text)
+
+    @staticmethod
+    def show_shortcuts():
+        text = (
+            "Keyboard Shortcuts:\n"
+            "- Ctrl+Z: Undo last action\n"
+            "- Ctrl+Y or Cmd+Y: Redo last action\n"
+            "- Right-click on a key: Copy key or values\n"
+        )
+        messagebox.showinfo("Keyboard Shortcuts", text)
+
+    @staticmethod
+    def show_faq():
+        text = (
+            "FAQ:\n"
+            "Q: How do I auto-translate?\n"
+            "A: When adding or editing, check 'Use DeepL to translate'.\n\n"
+            "Q: Where are files saved?\n"
+            f"A: Config path is {CONFIG_PATH}.\n"
+        )
+        messagebox.showinfo("FAQ", text)
 
     def _load_data(self):
         self.pl_data = load_json(self.pl_path)
