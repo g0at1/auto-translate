@@ -12,6 +12,7 @@ from tkinter import ttk
 from enums.menu_option_label_enum import MenuOptionLabelEnum
 from enums.action_enum import ActionEnum
 import logging
+import concurrent.futures
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -166,11 +167,12 @@ def get_nested(d, keys):
 
 
 class TranslationApp(ThemedTk):
-    def __init__(self, pl_path, en_path):
+    def __init__(self, pl_path, en_path, max_workers=5):
         super().__init__(theme="equilux")
         self.pl_path = pl_path
         self.en_path = en_path
         self._load_data()
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         style = ThemedStyle(self)
         style.configure("Custom.Treeview")
         style.map(
@@ -303,6 +305,7 @@ class TranslationApp(ThemedTk):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
     def on_close(self):
+        self.executor.shutdown(wait=False)
         self.destroy()
         self.quit()
 
@@ -395,9 +398,7 @@ class TranslationApp(ThemedTk):
         set_nested(self.pl_data, parts, pl_text)
 
         if dlg.result["auto"]:
-            threading.Thread(
-                target=self.translate_and_insert, args=(parts, pl_text), daemon=True
-            ).start()
+            self.executor.submit(self.translate_and_insert, parts, pl_text)
         else:
             manual_en = dlg.result.get("en", "").strip()
             op["en"] = manual_en
@@ -462,11 +463,7 @@ class TranslationApp(ThemedTk):
         # Update texts
         set_nested(self.pl_data, parts, dlg.result["pl"])
         if dlg.result["auto"]:
-            threading.Thread(
-                target=self.translate_and_insert,
-                args=(parts, dlg.result["pl"]),
-                daemon=True,
-            ).start()
+            self.executor.submit(self.translate_and_insert, parts, dlg.result["pl"])
         else:
             manual_en = dlg.result.get("en", "").strip()
             op["new_en"] = manual_en
