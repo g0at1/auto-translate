@@ -305,7 +305,7 @@ class TranslationApp(ThemedTk):
         self.geometry(f"{w}x{h}+{x}+{y}")
 
     def on_close(self):
-        self.executor.shutdown(wait=False)
+        self.executor.shutdown(wait=True)  # Ensure all tasks complete before shutdown
         self.destroy()
         self.quit()
 
