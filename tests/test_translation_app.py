@@ -305,6 +305,7 @@ def test_delete_selected_removes_key(monkeypatch):
     en = {"foo": {"bar": "EN"}}
     full_key = "foo.bar"
     ta = make_translation_app_with_tree(pl, en, full_key)
+    ta.update_title = lambda: None
 
     monkeypatch.setattr(messagebox, "askyesno", lambda title, msg: True)
 
