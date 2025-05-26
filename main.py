@@ -194,7 +194,7 @@ class TranslationApp(ThemedTk):
             selectforeground=[("!disabled", "white")],
         )
 
-        self.title(f"Language Files - {Path(pl_path).name} & {Path(en_path).name}")
+        self.update_title()
         self.geometry("600x400")
         self.center_window()
         self.undo_stack = []
@@ -247,6 +247,24 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def count_translations(self):
+        def _count_dict(d):
+            count = 0
+            for v in d.values():
+                if isinstance(v, dict):
+                    count += _count_dict(v)
+                else:
+                    count += 1
+            return count
+
+        return _count_dict(self.pl_data)
+
+    def update_title(self):
+        count = self.count_translations()
+        self.title(
+            f"Language Files - {Path(self.pl_path).name} & {Path(self.en_path).name} | Translations: {count}"
+        )
 
     @staticmethod
     def show_overview():
@@ -422,7 +440,7 @@ class TranslationApp(ThemedTk):
                     initial = full + "."
                     break
                 row = self.tree.parent(row)
-        dlg = AddDialog(self, initial_key=initial)
+        dlg = AddDialog(self, initial_key=initial, title="Add New Translation")
         if not getattr(dlg, "result", None):
             return
 
@@ -440,6 +458,7 @@ class TranslationApp(ThemedTk):
             op["en"] = manual_en
             set_nested(self.en_data, parts, manual_en)
             self.insert_all()
+            self.update_title()
 
     def edit_selected(self):
         self.redo_stack.clear()
@@ -600,6 +619,7 @@ class TranslationApp(ThemedTk):
         self.remove_nested(self.pl_data, parts)
         self.remove_nested(self.en_data, parts)
         self.insert_all()
+        self.update_title()
 
     def undo_last(self):
         if not self.undo_stack:
@@ -623,6 +643,7 @@ class TranslationApp(ThemedTk):
             set_nested(self.en_data, op["old_parts"], op["old_en"])
             messagebox.showinfo("Undo", "Undo edit operation.")
         self.insert_all()
+        self.update_title()
 
     def redo_last(self):
         if not self.redo_stack:
@@ -648,6 +669,7 @@ class TranslationApp(ThemedTk):
             messagebox.showinfo("Redo", "Redo edit operation.")
 
         self.insert_all()
+        self.update_title()
 
 
 def main():
