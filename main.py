@@ -24,9 +24,21 @@ logging.basicConfig(
 
 
 def load_json(path):
+    path = Path(path)
+
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
-    except Exception:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        logging.warning(f"File not found: {path}")
+        return {}
+    except OSError as e:
+        logging.error(f"Failed reading the file {path}: {e}")
+        return {}
+
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError as e:
+        logging.error(f"Invalid JSON format in file {path}: {e}")
         return {}
 
 
@@ -460,16 +472,21 @@ class TranslationApp(ThemedTk):
             self.insert_all()
             self.update_title()
 
-    def edit_selected(self):
-        self.redo_stack.clear()
+    def _get_selected_full_key(self):
         sel = self.tree.selection()
         if not sel:
-            return
+            return None
         node = sel[0]
         full = self.tree.set(node, "full_key")
         if not full:
-            node = self.tree.parent(node)
-            full = self.tree.set(node, "full_key")
+            parent = self.tree.parent(node)
+            full = self.tree.set(parent, "full_key")
+        return full or None
+
+    def edit_selected(self):
+        self.redo_stack.clear()
+        full = self._get_selected_full_key()
+
         if not full:
             return
 
@@ -594,14 +611,7 @@ class TranslationApp(ThemedTk):
 
     def delete_selected(self):
         self.redo_stack.clear()
-        sel = self.tree.selection()
-        if not sel:
-            return
-        node = sel[0]
-        full = self.tree.set(node, "full_key")
-        if not full:
-            node = self.tree.parent(node)
-            full = self.tree.set(node, "full_key")
+        full = self._get_selected_full_key()
         if not full:
             return
 
