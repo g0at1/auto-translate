@@ -12,15 +12,13 @@ from enums.menu_option_label_enum import MenuOptionLabelEnum
 from enums.action_enum import ActionEnum
 import logging
 import concurrent.futures
+from utils.logging_config import configure_logging
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
 translator = deepl.Translator(DEEPL_API_KEY)
 
 CONFIG_PATH = Path.home() / ".translation_app_config.json"
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
-)
 
 
 def load_json(path):
@@ -548,10 +546,11 @@ class TranslationApp(ThemedTk):
 
     def finish_insert(self, parts, en_text):
         if not en_text:
-            en_text = (
-                simpledialog.askstring("English translation", "Enter English text:")
-                or ""
+            messagebox.showerror(
+                "Translation failed",
+                "Error while translating text. Check connection with DeepL and try again",
             )
+            return
         set_nested(self.en_data, parts, en_text)
 
         for op in reversed(self.undo_stack):
@@ -683,6 +682,7 @@ class TranslationApp(ThemedTk):
 
 
 def main():
+    configure_logging(logging.INFO)
     root = tk.Tk()
     root.withdraw()
     config = load_json(CONFIG_PATH)
