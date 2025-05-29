@@ -215,6 +215,7 @@ class TranslationApp(ThemedTk):
         self.bind_all("<Control-z>", lambda e: self.undo_last())
         self.bind_all("<Command-s>", lambda e: self.save())
         self.bind_all("<Command-r>", lambda e: self.reload())
+        self.bind_all("<Command-Shift-c>", lambda e: self.change_files())
 
         search_frame = ttk.Frame(self)
         search_frame.pack(fill="x")
@@ -259,16 +260,27 @@ class TranslationApp(ThemedTk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def reload(self):
-        self._load_data()
-        self.insert_all()
-        self.update_title()
-        messagebox.showinfo("Reloaded", "Reloaded files")
+        try:
+            self._load_data()
+            self.insert_all()
+            self.update_title()
+            messagebox.showinfo("Reloaded", "Reloaded files")
+        except Exception as e:
+            logging.error("Error reloading files: %s", e, exc_info=True)
+            messagebox.showerror("Error", f"Failed to reload files: {e}")
 
     def _create_file_menu(self):
+        accel_text_change_files = (
+            "Command-Shift-C" if sys.platform == "darwin" else "Ctrl-Shift-C"
+        )
         accel_text_save = "Command-S" if sys.platform == "darwin" else "Ctrl+S"
         accel_text_refresh = "Command-R" if sys.platform == "darwin" else "Ctrl+R"
         file_menu = tk.Menu(self.menu_bar, tearoff=0)
-        file_menu.add_command(label="Change Files", command=self.change_files)
+        file_menu.add_command(
+            label="Change Files",
+            command=self.change_files,
+            accelerator=accel_text_change_files,
+        )
         file_menu.add_command(
             label="Save All", command=self.save, accelerator=accel_text_save
         )
