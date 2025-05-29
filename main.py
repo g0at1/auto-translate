@@ -13,6 +13,7 @@ from enums.action_enum import ActionEnum
 import logging
 import concurrent.futures
 from utils.logging_config import configure_logging
+import sys
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -183,11 +184,8 @@ class TranslationApp(ThemedTk):
         super().__init__(theme="equilux")
         self.menu_bar = tk.Menu(self)
         self.config(menu=self.menu_bar)
-        help_menu = tk.Menu(self.menu_bar, tearoff=0)
-        help_menu.add_command(label="Overview", command=self.show_overview)
-        help_menu.add_command(label="Keyboard Shortcuts", command=self.show_shortcuts)
-        help_menu.add_command(label="FAQ", command=self.show_faq)
-        self.menu_bar.add_cascade(label="Help", menu=help_menu)
+        self._create_file_menu()
+        self._create_help_menu()
         self.pl_path = pl_path
         self.en_path = en_path
         self._load_data()
@@ -215,6 +213,8 @@ class TranslationApp(ThemedTk):
         self.bind_all("<Command-z>", lambda e: self.undo_last())
         self.bind_all("<Command-y>", lambda e: self.redo_last())
         self.bind_all("<Control-z>", lambda e: self.undo_last())
+        self.bind_all("<Command-s>", lambda e: self.save())
+        self.bind_all("<Command-r>", lambda e: self.reload())
 
         search_frame = ttk.Frame(self)
         search_frame.pack(fill="x")
@@ -247,9 +247,6 @@ class TranslationApp(ThemedTk):
         ttk.Button(btn_frame, text="Add New", command=self.add_new).pack(
             side="left", padx=5, pady=5
         )
-        ttk.Button(btn_frame, text="Change Files", command=self.change_files).pack(
-            side="left", padx=5, pady=5
-        )
         ttk.Button(btn_frame, text="Save", command=self.save).pack(side="left", padx=5)
         ttk.Button(btn_frame, text="Edit", command=self.edit_selected).pack(
             side="left", padx=5, pady=5
@@ -260,6 +257,32 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def reload(self):
+        self._load_data()
+        self.insert_all()
+        self.update_title()
+        messagebox.showinfo("Reloaded", "Reloaded files")
+
+    def _create_file_menu(self):
+        accel_text_save = "Command-S" if sys.platform == "darwin" else "Ctrl+S"
+        accel_text_refresh = "Command-R" if sys.platform == "darwin" else "Ctrl+R"
+        file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        file_menu.add_command(label="Change Files", command=self.change_files)
+        file_menu.add_command(
+            label="Save All", command=self.save, accelerator=accel_text_save
+        )
+        file_menu.add_command(
+            label="Reload", command=self.reload, accelerator=accel_text_refresh
+        )
+        self.menu_bar.add_cascade(label="Files", menu=file_menu)
+
+    def _create_help_menu(self):
+        help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        help_menu.add_command(label="Overview", command=self.show_overview)
+        help_menu.add_command(label="Keyboard Shortcuts", command=self.show_shortcuts)
+        help_menu.add_command(label="FAQ", command=self.show_faq)
+        self.menu_bar.add_cascade(label="Help", menu=help_menu)
 
     def count_translations(self):
         def _count_dict(d):
@@ -292,8 +315,10 @@ class TranslationApp(ThemedTk):
     def show_shortcuts():
         text = (
             "Keyboard Shortcuts:\n"
-            "- Ctrl+Z: Undo last action\n"
+            "- Ctrl+Z or Cmd+Z: Undo last action\n"
             "- Ctrl+Y or Cmd+Y: Redo last action\n"
+            "- Ctrl+S or Cmd+S: Save changes\n"
+            "- Ctrl+R or Cmd+R: Reload data from files\n"
             "- Right-click on a key: Copy key or values\n"
         )
         messagebox.showinfo("Keyboard Shortcuts", text)
