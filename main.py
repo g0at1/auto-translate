@@ -29,6 +29,9 @@ def load_json(path):
     except FileNotFoundError:
         logging.warning(f"File not found: {path}")
         return {}
+    except UnicodeDecodeError as e:
+        logging.error(f"Encoding error reading file {path}: {e}")
+        return {}
     except OSError as e:
         logging.error(f"Failed reading the file {path}: {e}")
         return {}
@@ -471,6 +474,14 @@ class TranslationApp(ThemedTk):
             self.update_title()
 
     def _get_selected_full_key(self):
+        """
+        Retrieve the full key of the currently selected item in the tree widget.
+        If the selected item does not have a full key, the method attempts to retrieve
+        the full key of its parent. If no selection is made or no full key is found,
+        the method returns None.
+        Returns:
+            str or None: The full key of the selected item, or None if not available.
+        """
         sel = self.tree.selection()
         if not sel:
             return None
