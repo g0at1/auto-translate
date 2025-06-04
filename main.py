@@ -179,6 +179,22 @@ def get_nested(d, keys):
     return cur if not isinstance(cur, dict) else ""
 
 
+def flatten_to_nested(d: dict) -> dict:
+    result = {}
+    for key, value in d.items():
+        if isinstance(value, dict):
+            nested = flatten_to_nested(value)
+            if key not in result or not isinstance(result[key], dict):
+                result[key] = nested
+            else:
+                for subk, subv in nested.items():
+                    result[key][subk] = subv
+        else:
+            parts = key.split(".")
+            set_nested(result, parts, value)
+    return result
+
+
 class TranslationApp(ThemedTk):
     def __init__(self, pl_path, en_path, max_workers=5):
         super().__init__(theme="equilux")
@@ -259,6 +275,24 @@ class TranslationApp(ThemedTk):
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def reorganize_all(self):
+        if not messagebox.askyesno(
+            "Reorganize JSON",
+            "This operation will move all keys containing dots to a nested structure. Do you want to continue?",
+        ):
+            return
+
+        self.pl_data = flatten_to_nested(self.pl_data)
+        self.en_data = flatten_to_nested(self.en_data)
+
+        self.insert_all()
+        self.update_title()
+
+        messagebox.showinfo(
+            "Reorganization completed",
+            "The reorganization of the JSON structure has been completed.",
+        )
+
     def reload(self):
         try:
             self._load_data()
@@ -287,6 +321,7 @@ class TranslationApp(ThemedTk):
         file_menu.add_command(
             label="Reload", command=self.reload, accelerator=accel_text_refresh
         )
+        file_menu.add_command(label="Reorganize JSON", command=self.reorganize_all)
         self.menu_bar.add_cascade(label="Files", menu=file_menu)
 
     def _create_help_menu(self):
