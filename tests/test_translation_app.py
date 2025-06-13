@@ -1,4 +1,6 @@
 import json
+from types import SimpleNamespace
+
 import pytest
 import sys, os
 
@@ -541,6 +543,7 @@ def test_validate_success(monkeypatch, dlg):
     )
     dlg.key_entry = FakeEntry("valid.key")
     dlg.pl_entry = FakeEntry("tekst")
+    dlg.parent = SimpleNamespace(key_exists=lambda key: False)
     assert dlg.validate() is True
 
 

@@ -71,6 +71,7 @@ class AddDialog(simpledialog.Dialog):
         auto_default=True,
         **kwargs,
     ):
+        self.parent = parent
         self.initial_key = initial_key
         self.initial_pl = initial_pl
         self.initial_en = initial_en
@@ -135,6 +136,9 @@ class AddDialog(simpledialog.Dialog):
             return False
         if not pl:
             messagebox.showerror("Error", "Polish text is required")
+            return False
+        if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
+            messagebox.showerror("Error", f"Key already exists: {key}")
             return False
         return True
 
@@ -274,6 +278,10 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def key_exists(self, full_key: str) -> bool:
+        parts = full_key.split(".")
+        return bool(get_nested(self.pl_data, parts) or get_nested(self.en_data, parts))
 
     def reorganize_all(self):
         if not messagebox.askyesno(
