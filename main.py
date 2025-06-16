@@ -172,7 +172,7 @@ class AddDialog(simpledialog.Dialog):
             box, text="Jump to ID", width=10, command=self.on_jump
         )
         self.jump_button.pack(side="left", padx=5, pady=5)
-        self.jump_button.state(["disabled"])
+        self.jump_button.pack_forget()
 
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
@@ -183,12 +183,12 @@ class AddDialog(simpledialog.Dialog):
         key = self.key_entry.get().strip()
         if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
             self.duplicate_key = key
-            self.jump_button.state(["!disabled"])
             self.duplicate_label.config(text=f"Key “{key}” already exists.")
+            self.jump_button.pack(side="left", padx=5, pady=5)
         else:
             self.duplicate_key = None
-            self.jump_button.state(["disabled"])
             self.duplicate_label.config(text="")
+            self.jump_button.pack_forget()
 
 
 def set_nested(d, keys, value):
