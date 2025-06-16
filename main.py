@@ -14,6 +14,8 @@ import logging
 import concurrent.futures
 from utils.logging_config import configure_logging
 import sys
+import re
+from utils.utils import TypeUtils
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
@@ -229,6 +231,7 @@ def flatten_to_nested(d: dict) -> dict:
 class TranslationApp(ThemedTk):
     def __init__(self, pl_path, en_path, max_workers=5):
         super().__init__(theme="equilux")
+        config = load_json(CONFIG_PATH)
         self.menu_bar = tk.Menu(self)
         self.config(menu=self.menu_bar)
         self._create_file_menu()
@@ -254,7 +257,9 @@ class TranslationApp(ThemedTk):
         )
 
         self.update_title()
-        self.geometry("600x400")
+        cfg_main_window_size = config.get("main_window_size")
+        main_window_size = TypeUtils.is_null_or_empty(cfg_main_window_size, "600x400")
+        self.geometry(main_window_size)
         self.center_window()
         self.undo_stack = []
         self.redo_stack = []
@@ -371,7 +376,9 @@ class TranslationApp(ThemedTk):
         text = json.dumps(config, ensure_ascii=False, indent=2)
         win = tk.Toplevel(self)
         win.title("Configuration File")
-        win.geometry("800x500")
+        cfg_size = config.get("config_window_size")
+        config_window_size = TypeUtils.is_null_or_empty(cfg_size, "800x500")
+        win.geometry(config_window_size)
         style = ThemedStyle(win)
         style.set_theme("equilux")
         bg = style.lookup("TFrame", "background")
@@ -401,6 +408,14 @@ class TranslationApp(ThemedTk):
         )
         txt.insert("1.0", text)
         txt.grid(row=0, column=0, sticky="nsew")
+
+        def auto_indent(event):
+            line = txt.get("insert linestart", "insert")
+            indent = re.match(r"(\s*)", line).group(1)
+            txt.insert("insert", "\n" + indent)
+            return "break"
+
+        txt.bind("<Return>", auto_indent)
 
         ysb = ttk.Scrollbar(
             frame, style="Vertical.TScrollbar", orient="vertical", command=txt.yview
@@ -817,8 +832,15 @@ class TranslationApp(ThemedTk):
         )
         if not new_en:
             return
+
+        config = load_json(CONFIG_PATH)
+
+        config["pl_file"] = new_pl
+        config["en_file"] = new_en
+
+        save_json(config, CONFIG_PATH)
+
         self.pl_path, self.en_path = new_pl, new_en
-        save_json({"pl_file": self.pl_path, "en_file": self.en_path}, CONFIG_PATH)
         self._load_data()
         self.title(
             f"Language Files - {Path(self.pl_path).name} & {Path(self.en_path).name}"
@@ -938,7 +960,9 @@ def main():
         )
     if not pl_file or not en_file:
         return
-    save_json({"pl_file": pl_file, "en_file": en_file}, CONFIG_PATH)
+    config["pl_file"] = pl_file
+    config["en_file"] = en_file
+    save_json(config, CONFIG_PATH)
     app = TranslationApp(pl_file, en_file)
     app.mainloop()
 
