@@ -186,6 +186,7 @@ class AddDialog(simpledialog.Dialog):
             self.jump_button.state(["!disabled"])
             self.duplicate_label.config(text=f"Key “{key}” already exists.")
         else:
+            self.duplicate_key = None
             self.jump_button.state(["disabled"])
             self.duplicate_label.config(text="")
 
