@@ -429,8 +429,12 @@ class TranslationApp(ThemedTk):
             messagebox.showerror("Error", f"Invalid JSON: {e}")
             return
 
-        save_json(data, CONFIG_PATH)
-        messagebox.showinfo("Saved", f"Configuration saved to {CONFIG_PATH}")
+        try:
+            save_json(data, CONFIG_PATH)
+            messagebox.showinfo("Saved", f"Configuration saved to {CONFIG_PATH}")
+        except OSError as e:
+            logging.error("Error saving configuration: %s", e, exc_info=True)
+            messagebox.showerror("Error", f"Failed to save configuration: {e}")
 
         new_pl = data.get("pl_file")
         new_en = data.get("en_file")
