@@ -233,6 +233,7 @@ class TranslationApp(ThemedTk):
         self.config(menu=self.menu_bar)
         self._create_file_menu()
         self._create_help_menu()
+        self._create_settings_menu()
         self.pl_path = pl_path
         self.en_path = en_path
         self._load_data()
@@ -359,6 +360,103 @@ class TranslationApp(ThemedTk):
         except Exception as e:
             logging.error("Error reloading files: %s", e, exc_info=True)
             messagebox.showerror("Error", f"Failed to reload files: {e}")
+
+    def _create_settings_menu(self):
+        settings_menu = tk.Menu(self.menu_bar, tearoff=0)
+        settings_menu.add_command(label="Show Config", command=self.show_config)
+        self.menu_bar.add_cascade(label="Settings", menu=settings_menu)
+
+    def show_config(self):
+        config = load_json(CONFIG_PATH)
+        text = json.dumps(config, ensure_ascii=False, indent=2)
+        win = tk.Toplevel(self)
+        win.title("Configuration File")
+        win.geometry("800x500")
+        style = ThemedStyle(win)
+        style.set_theme("equilux")
+        bg = style.lookup("TFrame", "background")
+        fg = style.lookup("TLabel", "foreground") or "white"
+        win.configure(background=bg)
+
+        style.configure(
+            "Vertical.TScrollbar", troughcolor=bg, background=bg, arrowcolor=fg
+        )
+        style.configure(
+            "Horizontal.TScrollbar", troughcolor=bg, background=bg, arrowcolor=fg
+        )
+
+        frame = ttk.Frame(win)
+        frame.pack(fill="both", expand=True)
+        frame.grid_rowconfigure(0, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
+
+        txt = tk.Text(
+            frame,
+            wrap="none",
+            bg=bg,
+            fg=fg,
+            insertbackground=fg,
+            highlightthickness=0,
+            bd=0,
+        )
+        txt.insert("1.0", text)
+        txt.grid(row=0, column=0, sticky="nsew")
+
+        ysb = ttk.Scrollbar(
+            frame, style="Vertical.TScrollbar", orient="vertical", command=txt.yview
+        )
+        ysb.grid(row=0, column=1, sticky="ns")
+        xsb = ttk.Scrollbar(
+            frame, style="Horizontal.TScrollbar", orient="horizontal", command=txt.xview
+        )
+        xsb.grid(row=1, column=0, sticky="ew")
+        txt.configure(yscrollcommand=ysb.set, xscrollcommand=xsb.set)
+
+        btn_frame = ttk.Frame(win)
+        btn_frame.pack(fill="x")
+        ttk.Button(btn_frame, text="Save", command=lambda: self.save_config(txt)).pack(
+            side="left", padx=5, pady=5
+        )
+        ttk.Button(btn_frame, text="Cancel", command=win.destroy).pack(
+            side="left", padx=5, pady=5
+        )
+
+    def save_config(self, text_widget):
+        content = text_widget.get("1.0", "end-1c")
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError as e:
+            messagebox.showerror("Error", f"Invalid JSON: {e}")
+            return
+
+        try:
+            save_json(data, CONFIG_PATH)
+            messagebox.showinfo("Saved", f"Configuration saved to {CONFIG_PATH}")
+        except OSError as e:
+            logging.error("Error saving configuration: %s", e, exc_info=True)
+            messagebox.showerror("Error", f"Failed to save configuration: {e}")
+
+        new_pl = data.get("pl_file")
+        new_en = data.get("en_file")
+        if new_pl and new_pl != self.pl_path:
+            self.pl_path = new_pl
+        if new_en and new_en != self.en_path:
+            self.en_path = new_en
+
+        try:
+            self._load_data()
+            self.insert_all()
+            self.update_title()
+            messagebox.showinfo("Reloaded", "Configuration applied and data reloaded.")
+        except Exception as e:
+            logging.error("Error reloading after config save: %s", e, exc_info=True)
+            messagebox.showerror("Error", f"Failed to reload data: {e}")
+
+        try:
+            cfg_win = text_widget.winfo_toplevel()
+            cfg_win.destroy()
+        except Exception:
+            pass
 
     def _create_file_menu(self):
         accel_text_change_files = (
