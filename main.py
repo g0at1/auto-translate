@@ -76,6 +76,8 @@ class AddDialog(simpledialog.Dialog):
         self.initial_pl = initial_pl
         self.initial_en = initial_en
         self.auto_default = auto_default
+        self.duplicate_key = None
+        self.jump_button = None
         super().__init__(parent, **kwargs)
 
     def body(self, master):
@@ -92,6 +94,9 @@ class AddDialog(simpledialog.Dialog):
         self.key_entry.grid(row=0, column=1)
         if self.initial_key:
             self.key_entry.insert(0, self.initial_key)
+        self.duplicate_label = ttk.Label(master, text="", foreground="orange")
+        self.duplicate_label.grid(row=4, column=1, sticky="w", pady=(2, 0))
+        self.key_entry.bind("<KeyRelease>", self.check_duplicate)
 
         ttk.Label(master, text="Polish text:").grid(row=1, column=0, sticky="w")
         self.pl_entry = ttk.Entry(master, width=50)
@@ -138,9 +143,15 @@ class AddDialog(simpledialog.Dialog):
             messagebox.showerror("Error", "Polish text is required")
             return False
         if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
+            self.duplicate_key = key
             messagebox.showerror("Error", f"Key already exists: {key}")
             return False
         return True
+
+    def on_jump(self):
+        self.cancel()
+        if self.duplicate_key:
+            self.parent.select_key(self.duplicate_key)
 
     def apply(self):
         self.result = {
@@ -157,11 +168,26 @@ class AddDialog(simpledialog.Dialog):
         ok.pack(side="left", padx=5, pady=5)
         cancel = ttk.Button(box, text="Cancel", width=10, command=self.cancel)
         cancel.pack(side="left", padx=5, pady=5)
+        self.jump_button = ttk.Button(
+            box, text="Jump to ID", width=10, command=self.on_jump
+        )
+        self.jump_button.pack(side="left", padx=5, pady=5)
+        self.jump_button.state(["disabled"])
 
         self.bind("<Return>", self.ok)
         self.bind("<Escape>", self.cancel)
 
         box.pack()
+
+    def check_duplicate(self, event=None):
+        key = self.key_entry.get().strip()
+        if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
+            self.duplicate_key = key
+            self.jump_button.state(["!disabled"])
+            self.duplicate_label.config(text=f"Key “{key}” already exists.")
+        else:
+            self.jump_button.state(["disabled"])
+            self.duplicate_label.config(text="")
 
 
 def set_nested(d, keys, value):
@@ -278,6 +304,28 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def select_key(self, full_key: str):
+        def _find(item):
+            if self.tree.set(item, "full_key") == full_key:
+                return item
+            for child in self.tree.get_children(item):
+                found = _find(child)
+                if found:
+                    self.tree.item(item, open=True)
+                    return found
+            return None
+
+        target = None
+        for root in self.tree.get_children(""):
+            target = _find(root)
+            if target:
+                break
+
+        if target:
+            self.tree.selection_set(target)
+            self.tree.see(target)
+            self.tree.focus(target)
 
     def key_exists(self, full_key: str) -> bool:
         parts = full_key.split(".")
