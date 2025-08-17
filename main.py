@@ -71,6 +71,7 @@ class AddDialog(simpledialog.Dialog):
         initial_pl="",
         initial_en="",
         auto_default=True,
+        original_key=None,
         **kwargs,
     ):
         self.parent = parent
@@ -78,6 +79,7 @@ class AddDialog(simpledialog.Dialog):
         self.initial_pl = initial_pl
         self.initial_en = initial_en
         self.auto_default = auto_default
+        self.original_key = original_key
         self.duplicate_key = None
         self.jump_button = None
         super().__init__(parent, **kwargs)
@@ -144,6 +146,8 @@ class AddDialog(simpledialog.Dialog):
         if not pl:
             messagebox.showerror("Error", "Polish text is required")
             return False
+        if self.original_key and key == self.original_key:
+            return True
         if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
             self.duplicate_key = key
             messagebox.showerror("Error", f"Key already exists: {key}")
@@ -183,6 +187,12 @@ class AddDialog(simpledialog.Dialog):
 
     def check_duplicate(self, event=None):
         key = self.key_entry.get().strip()
+        if self.original_key and key == self.original_key:
+            self.duplicate_key = None
+            self.duplicate_label.config(text="")
+            self.jump_button.pack_forget()
+            return
+
         if hasattr(self.parent, "key_exists") and self.parent.key_exists(key):
             self.duplicate_key = key
             self.duplicate_label.config(text=f"Key “{key}” already exists.")
@@ -753,6 +763,7 @@ class TranslationApp(ThemedTk):
             initial_pl=current_pl,
             initial_en=current_en,
             auto_default=False,
+            original_key=full,
             title="Edit Translation",
         )
         if not getattr(dlg, "result", None):
