@@ -544,6 +544,7 @@ def test_validate_success(monkeypatch, dlg):
     dlg.key_entry = FakeEntry("valid.key")
     dlg.pl_entry = FakeEntry("tekst")
     dlg.parent = SimpleNamespace(key_exists=lambda key: False)
+    dlg.original_key = FakeEntry("valid.key")
     assert dlg.validate() is True
 
 
