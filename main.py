@@ -16,12 +16,49 @@ from utils.logging_config import configure_logging
 import sys
 import re
 from utils.utils import TypeUtils
+import time
 
 load_dotenv()
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY")
 translator = deepl.Translator(DEEPL_API_KEY)
 
 CONFIG_PATH = Path.home() / ".translation_app_config.json"
+
+
+class DeepLUsageCache:
+    value = (None, None, None)  # (remaining, used, limit)
+    ts = 0.0
+
+
+def get_deepl_usage(translator: deepl.Translator):
+    """Return (used, limit) or (None, None) on error."""
+    try:
+        u = translator.get_usage()
+        if u and u.character:
+            return u.character.count or 0, u.character.limit or 0
+    except Exception as e:
+        logging.warning("Cannot fetch DeepL usage: %s", e)
+    return None, None
+
+
+def get_remaining_quota(translator: deepl.Translator):
+    """Return (remaining, used, limit) or (None, None, None) if unknown."""
+    used, limit = get_deepl_usage(translator)
+    if used is None or limit is None:
+        return None, None, None
+    return max(limit - used, 0), used, limit
+
+
+def refresh_usage_cache():
+    """Update global cache synchronously; return (remaining, used, limit)."""
+    rem, used, limit = get_remaining_quota(translator)
+    DeepLUsageCache.value = (rem, used, limit)
+    DeepLUsageCache.ts = time.time()
+    return DeepLUsageCache.value
+
+
+def estimate_char_cost(text: str) -> int:
+    return len(text or "")
 
 
 def load_json(path):
@@ -82,6 +119,9 @@ class AddDialog(simpledialog.Dialog):
         self.original_key = original_key
         self.duplicate_key = None
         self.jump_button = None
+
+        self._usage_update_job = None
+
         super().__init__(parent, **kwargs)
 
     def body(self, master):
@@ -120,8 +160,10 @@ class AddDialog(simpledialog.Dialog):
             if self.auto_var.get():
                 self.en_entry.delete(0, tk.END)
                 self.en_entry.config(state="disabled")
+                self.usage_refresh_btn.pack(side="left", padx=(8, 0))
             else:
                 self.en_entry.config(state="normal")
+                self.usage_refresh_btn.pack_forget()
 
         chk = ttk.Checkbutton(
             master,
@@ -130,9 +172,66 @@ class AddDialog(simpledialog.Dialog):
             command=toggle_en,
         )
         chk.grid(row=3, column=1, sticky="w")
+
+        wrap = ttk.Frame(master)
+        wrap.grid(row=5, column=1, sticky="w", pady=(6, 0))
+        self.usage_var = tk.StringVar(master, "")
+        self.usage_label = ttk.Label(
+            wrap, textvariable=self.usage_var, foreground="gray"
+        )
+        self.usage_label.pack(side="left")
+        self.usage_refresh_btn = ttk.Button(
+            wrap, text="Refresh", width=8, command=self._refresh_usage_async
+        )
+        self.usage_refresh_btn.pack(side="left", padx=(8, 0))
+
+        self.pl_entry.bind(
+            "<KeyRelease>", lambda _e=None: self._schedule_update_usage_label()
+        )
+        self.auto_var.trace_add("write", lambda *_: self._update_usage_label())
+
+        try:
+            self._refresh_usage_async()
+        except Exception:
+            pass
+        self._schedule_update_usage_label()
         toggle_en()
 
         return self.key_entry
+
+    def _update_usage_label(self):
+        if not self.auto_var.get():
+            self.usage_var.set("")
+            return
+        text_pl = self.pl_entry.get().strip()
+        needed = estimate_char_cost(text_pl)
+        rem, used, limit = DeepLUsageCache.value
+        if rem is None:
+            self.usage_var.set(f"Will take ~{needed} characters (no limit info)")
+        else:
+            left_after = max(rem - needed, 0)
+            self.usage_var.set(
+                f"Will take ~{needed} • Remaining: {rem}/{limit} • After: {left_after}"
+            )
+
+    def _schedule_update_usage_label(self):
+        if self._usage_update_job:
+            try:
+                self.after_cancel(self._usage_update_job)
+            except Exception:
+                pass
+        self._usage_update_job = self.after(600, self._update_usage_label)
+
+    def _refresh_usage_async(self):
+        app = self.parent
+
+        def work():
+            refresh_usage_cache()
+
+        def done():
+            self._update_usage_label()
+
+        app.executor.submit(lambda: (work(), self.after(0, done)))
 
     def validate(self):
         key = self.key_entry.get().strip()
@@ -266,6 +365,8 @@ class TranslationApp(ThemedTk):
             selectforeground=[("!disabled", "white")],
         )
 
+        self._refresh_global_usage()
+
         self.update_title()
         cfg_main_window_size = config.get("main_window_size")
         main_window_size = TypeUtils.is_null_or_empty(cfg_main_window_size, "600x400")
@@ -321,6 +422,9 @@ class TranslationApp(ThemedTk):
 
         self.insert_all()
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def _refresh_global_usage(self):
+        self.executor.submit(refresh_usage_cache)
 
     def select_key(self, full_key: str):
         def _find(item):
@@ -717,6 +821,18 @@ class TranslationApp(ThemedTk):
         set_nested(self.pl_data, parts, pl_text)
 
         if dlg.result["auto"]:
+            needed = estimate_char_cost(pl_text)
+            remaining, used, limit = get_remaining_quota(translator)
+            if remaining is not None and remaining < needed:
+                messagebox.showerror(
+                    "DeepL limit",
+                    f"No limit to translate this key.\n"
+                    f"Needed: {needed} characters\n"
+                    f"Remaining: {remaining} / {limit} (used {used})",
+                )
+                self.insert_all()
+                self.update_title()
+                return
             self.executor.submit(self.translate_and_insert, parts, pl_text)
         else:
             manual_en = dlg.result.get("en", "").strip()
@@ -797,6 +913,17 @@ class TranslationApp(ThemedTk):
         # Update texts
         set_nested(self.pl_data, parts, dlg.result["pl"])
         if dlg.result["auto"]:
+            needed = estimate_char_cost(dlg.result["pl"])
+            remaining, used, limit = get_remaining_quota(translator)
+            if remaining is not None and remaining < needed:
+                messagebox.showerror(
+                    "DeepL limit",
+                    f"No limit to translate this key.\n"
+                    f"Needed: {needed} characters\n"
+                    f"Remaining: {remaining} / {limit} (used {used})",
+                )
+                self.insert_all()
+                return
             self.executor.submit(self.translate_and_insert, parts, dlg.result["pl"])
         else:
             manual_en = dlg.result.get("en", "").strip()
@@ -827,6 +954,15 @@ class TranslationApp(ThemedTk):
                 elif op["action"] == ActionEnum.Edit.value:
                     op["new_en"] = en_text
                 break
+
+        self._refresh_global_usage()
+
+        remaining, used, limit = DeepLUsageCache.value
+        if remaining is not None:
+            messagebox.showinfo(
+                "DeepL usage",
+                f"Translation completed.\nRemaining limit: {remaining} / {limit} (used {used}).",
+            )
 
         self.insert_all()
 
