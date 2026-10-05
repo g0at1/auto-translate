@@ -1,0 +1,51 @@
+{
+  "UI": {
+    "APP": {
+      "TITLE": "Language Files - {pl} & {en} | Translations: {count}"
+    },
+    "TREE": {
+      "TITLE": "Translation Keys"
+    },
+    "LABEL": {
+      "SEARCH": "Search:",
+      "LANGUAGE": "Language:"
+    },
+    "BUTTON": {
+      "ADD": "Add New",
+      "SAVE": "Save",
+      "EDIT": "Edit",
+      "DELETE": "Delete"
+    },
+    "MENU": {
+      "FILES_CASCADE": "Files",
+      "HELP_CASCADE": "Help",
+      "SETTINGS_CASCADE": "Settings",
+      "FILES": {
+        "CHANGE_FILES": "Change Files",
+        "SAVE_ALL": "Save All",
+        "RELOAD": "Reload",
+        "REORGANIZE": "Reorganize JSON"
+      },
+      "HELP": {
+        "OVERVIEW": "Overview",
+        "SHORTCUTS": "Keyboard Shortcuts",
+        "FAQ": "FAQ"
+      },
+      "SETTINGS": {
+        "SHOW_CONFIG": "Show Config"
+      }
+    },
+    "CONTEXT": {
+      "COPY_KEY": "Copy Key",
+      "COPY_PL": "Copy PL Value",
+      "COPY_EN": "Copy EN Value"
+    },
+    "DIALOG": {
+      "RELOAD_TITLE": "Reloaded",
+      "RELOAD_BODY": "Reloaded files",
+      "SAVE_TITLE": "Saved",
+      "SAVED_TO": "Configuration saved to {path}",
+      "UPDATED_FILES": "Updated:\n{pl}\n{en}"
+    }
+  }
+}

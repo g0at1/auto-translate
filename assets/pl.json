@@ -1,0 +1,51 @@
+{
+  "UI": {
+    "APP": {
+      "TITLE": "Pliki językowe - {pl} i {en} | Tłumaczeń: {count}"
+    },
+    "TREE": {
+      "TITLE": "Klucze tłumaczeń"
+    },
+    "LABEL": {
+      "SEARCH": "Szukaj:",
+      "LANGUAGE": "Język:"
+    },
+    "BUTTON": {
+      "ADD": "Dodaj",
+      "SAVE": "Zapisz",
+      "EDIT": "Edytuj",
+      "DELETE": "Usuń"
+    },
+    "MENU": {
+      "FILES_CASCADE": "Pliki",
+      "HELP_CASCADE": "Pomoc",
+      "SETTINGS_CASCADE": "Ustawienia",
+      "FILES": {
+        "CHANGE_FILES": "Zmień pliki",
+        "SAVE_ALL": "Zapisz wszystko",
+        "RELOAD": "Przeładuj",
+        "REORGANIZE": "Zreorganizuj JSON"
+      },
+      "HELP": {
+        "OVERVIEW": "Przegląd",
+        "SHORTCUTS": "Skróty klawiaturowe",
+        "FAQ": "FAQ"
+      },
+      "SETTINGS": {
+        "SHOW_CONFIG": "Pokaż konfigurację"
+      }
+    },
+    "CONTEXT": {
+      "COPY_KEY": "Kopiuj klucz",
+      "COPY_PL": "Kopiuj wartość PL",
+      "COPY_EN": "Kopiuj wartość EN"
+    },
+    "DIALOG": {
+      "RELOAD_TITLE": "Przeładowano",
+      "RELOAD_BODY": "Pliki zostały przeładowane",
+      "SAVE_TITLE": "Zapisano",
+      "SAVED_TO": "Konfigurację zapisano do {path}",
+      "UPDATED_FILES": "Zaktualizowano:\n{pl}\n{en}"
+    }
+  }
+}

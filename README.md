@@ -2,7 +2,7 @@
 
 **Auto-Translate Manager** is a lightweight desktop application written in Python that helps you manage i18n JSON translation files. It allows you to:
 
-- Load two translation files: `pl.json` (Polish) and `en.json` (English)  
+- Open a single **project file** that points to both translation files: `pl.json` (Polish) and `en.json` (English)  
 - Browse existing translation keys and their corresponding texts  
 - Add new translation entries  
 - Automatically translate via DeepL (if enabled) or enter translations manually  
@@ -19,8 +19,8 @@ App is still clunky and not fully tested, but it works for basic use cases. It i
 3. [DeepL Configuration (Optional)](#deepl-configuration-optional)  
 4. [Running the Application](#running-the-application)  
 5. [Using the Application](#using-the-application)  
-   - [Step 1: Select Polish File](#step-1-select-polish-file)  
-   - [Step 2: Select English File](#step-2-select-english-file)  
+   - [Step 1: Open or Create a Project](#step-1-open-or-create-a-project)  
+   - [Step 2: The Project File](#step-2-the-project-file)  
    - [Step 3: Browse Translations](#step-3-browse-translations)  
    - [Step 4: Add New Translation](#step-4-add-new-translation)  
    - [Step 5: Save Changes](#step-5-save-changes)  
@@ -85,24 +85,33 @@ This will launch the Translation Manager GUI.
 
 ## Using the Application
 
-### Step 1: Select Polish File
+### Step 1: Open or Create a Project
 
-When prompted, choose your Polish translation file (`pl.json`) from the `i18n` folder:
+On first launch a welcome screen appears:
 
-![Select Polish File](./screenshots/select_pl_file.png)
+- **Open project…** – pick an existing `*.project.json` file. Both translation files are loaded at once.
+- **New project…** – choose your `pl.json` and `en.json` files, then choose where to save the project file (e.g. next to your `i18n` folder).
+- **Recent projects** – one click to reopen a project you used before.
 
-### Step 2: Select English File
+On later launches the last project opens automatically. Use **Files › Open Project…** (`Cmd/Ctrl+O`), **Files › Open Recent** or **Files › New Project…** to switch.
 
-Next, select your English translation file (`en.json`):
+### Step 2: The Project File
 
-![Select English File](./screenshots/select_en_file.png)
+A project file is a small JSON file that stores the paths to both translation files, relative to the project file itself, so you can commit it to your repository:
+
+```json
+{
+  "name": "My App",
+  "files": {
+    "pl": "src/assets/i18n/pl.json",
+    "en": "src/assets/i18n/en.json"
+  }
+}
+```
 
 ### Step 3: Browse Translations
 
-Once both files are loaded, you’ll see a tree view of all translation keys. Each key shows:
-
-- **[PL]** – the Polish text  
-- **[EN]** – the English text  
+Once the project is loaded, you’ll see all translation keys grouped in a tree, with the **Polish** and **English** texts side by side. Keys with no English translation are highlighted, and the header shows how many are missing. Select a key to see its full texts in the **Details** panel; double-click it (or press Enter) to edit it.
 
 ![Browse Translations](./screenshots/browse_keys.png)
 
@@ -120,7 +129,7 @@ Once both files are loaded, you’ll see a tree view of all translation keys. Ea
 
 ### Step 5: Save Changes
 
-After making edits or additions, click **Save**.  
+After making edits or additions, click **Save** (`Cmd/Ctrl+S`). The status bar shows when you have unsaved changes, and the app asks before you close or switch projects with unsaved work.  
 Both `pl.json` and `en.json` will be overwritten with your updated translations.  
 You can then close the app or continue working.
 

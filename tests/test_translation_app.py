@@ -144,16 +144,14 @@ def test_save_updates_files_and_message(tmp_path, monkeypatch):
     ta = app.TranslationApp(str(pl), str(en))
     ta.pl_data["foo"] = "bar"
     ta.en_data["baz"] = "qux"
-    info_called = {}
-    monkeypatch.setattr(
-        messagebox,
-        "showinfo",
-        lambda title, msg: info_called.update({"title": title, "msg": msg}),
-    )
-    ta.save()
+    assert ta.has_unsaved_changes()
+    notified = []
+    monkeypatch.setattr(ta, "notify", lambda msg, kind="success": notified.append(msg))
+    assert ta.save() is True
     assert json.loads(pl.read_text())["foo"] == "bar"
     assert json.loads(en.read_text())["baz"] == "qux"
-    assert "Updated" in info_called["title"] or "Updated" in info_called["msg"]
+    assert "Updated" in notified[-1]
+    assert not ta.has_unsaved_changes()
 
 
 # -----------------------------
@@ -239,31 +237,182 @@ def test_finish_insert_updates_data(tmp_path):
     assert app.get_nested(ta.en_data, parts) == "hello"
 
 
-def test_main_saves_config(monkeypatch, tmp_path):
-    # No config
-    monkeypatch.setenv("HOME", str(tmp_path))
+class DummyMainApp:
+    instances = []
+
+    def __init__(self, pl_path, en_path, **kwargs):
+        self.pl_path, self.en_path = pl_path, en_path
+        self.project = kwargs.get("project")
+        DummyMainApp.instances.append(self)
+
+    def mainloop(self):
+        pass
+
+
+@pytest.fixture
+def main_env(monkeypatch, tmp_path):
     config = tmp_path / ".translation_app_config.json"
     monkeypatch.setattr(app, "CONFIG_PATH", config)
-    # Dialog returns files
-    p = tmp_path / "p.json"
-    e = tmp_path / "e.json"
-    p.write_text(json.dumps({}))
-    e.write_text(json.dumps({}))
-    seq = [str(p), str(e)]
-    monkeypatch.setattr(filedialog, "askopenfilename", lambda **k: seq.pop(0))
-    saved = []
-    monkeypatch.setattr(app, "save_json", lambda data, path: saved.append((data, path)))
+    DummyMainApp.instances = []
+    monkeypatch.setattr(app, "TranslationApp", DummyMainApp)
+    pl = tmp_path / "i18n" / "pl.json"
+    en = tmp_path / "i18n" / "en.json"
+    pl.parent.mkdir()
+    pl.write_text(json.dumps({}))
+    en.write_text(json.dumps({}))
+    return SimpleNamespace(config=config, pl=pl, en=en, tmp=tmp_path)
 
-    class DummyApp:
-        def __init__(self, x, y):
-            self.x, self.y = x, y
 
-        def mainloop(self):
-            pass
-
-    monkeypatch.setattr(app, "TranslationApp", DummyApp)
+def test_main_uses_project_chosen_on_welcome_screen(monkeypatch, main_env):
+    project = app.save_project(
+        main_env.tmp / "translations.project.json", main_env.pl, main_env.en
+    )
+    monkeypatch.setattr(app, "run_welcome", lambda recent: project)
     app.main()
-    assert saved and saved[0][1] == config
+    started = DummyMainApp.instances[-1]
+    assert started.pl_path == str(main_env.pl.resolve())
+    assert started.en_path == str(main_env.en.resolve())
+    saved = json.loads(main_env.config.read_text(encoding="utf-8"))
+    assert saved["project_file"] == project.path
+    assert saved["recent_projects"] == [project.path]
+
+
+def test_main_reopens_last_project_without_asking(monkeypatch, main_env):
+    project = app.save_project(
+        main_env.tmp / "translations.project.json", main_env.pl, main_env.en
+    )
+    app.save_json({"project_file": project.path}, main_env.config)
+    monkeypatch.setattr(
+        app, "run_welcome", lambda recent: pytest.fail("should not ask")
+    )
+    app.main()
+    assert DummyMainApp.instances[-1].project.path == project.path
+
+
+def test_main_falls_back_to_legacy_file_pair(monkeypatch, main_env):
+    app.save_json(
+        {"pl_file": str(main_env.pl), "en_file": str(main_env.en)}, main_env.config
+    )
+    monkeypatch.setattr(
+        app, "run_welcome", lambda recent: pytest.fail("should not ask")
+    )
+    app.main()
+    assert DummyMainApp.instances[-1].pl_path == str(main_env.pl)
+
+
+def test_main_exits_when_welcome_cancelled(monkeypatch, main_env):
+    monkeypatch.setattr(app, "run_welcome", lambda recent: None)
+    app.main()
+    assert DummyMainApp.instances == []
+
+
+def test_main_shows_welcome_when_last_project_is_broken(monkeypatch, main_env):
+    app.save_json(
+        {
+            "project_file": str(main_env.tmp / "gone.project.json"),
+            "pl_file": str(main_env.pl),
+            "en_file": str(main_env.en),
+        },
+        main_env.config,
+    )
+    asked = []
+    monkeypatch.setattr(app, "run_welcome", lambda recent: asked.append(1))
+    app.main()
+    assert asked
+
+
+# -----------------------------
+# Project files
+# -----------------------------
+def test_project_roundtrip_stores_relative_paths(tmp_path):
+    from utils.project import load_project, save_project
+
+    files = tmp_path / "src" / "i18n"
+    files.mkdir(parents=True)
+    (files / "pl.json").write_text("{}")
+    (files / "en.json").write_text("{}")
+    project_path = tmp_path / "app.project.json"
+
+    save_project(project_path, files / "pl.json", files / "en.json", name="My app")
+    stored = json.loads(project_path.read_text(encoding="utf-8"))
+    assert stored == {
+        "name": "My app",
+        "files": {"pl": "src/i18n/pl.json", "en": "src/i18n/en.json"},
+    }
+
+    project = load_project(project_path)
+    assert project.pl_path == str((files / "pl.json").resolve())
+    assert project.en_path == str((files / "en.json").resolve())
+    assert project.display_name == "My app"
+
+
+def test_project_display_name_from_filename(tmp_path):
+    from utils.project import TranslationProject
+
+    p = TranslationProject(
+        "a/pl.json", "a/en.json", path=str(tmp_path / "shop.project.json")
+    )
+    assert p.display_name == "shop"
+    assert (
+        TranslationProject("a/pl.json", "a/en.json").display_name == "pl.json & en.json"
+    )
+
+
+@pytest.mark.parametrize(
+    "content, message",
+    [
+        ("{oops", "not valid JSON"),
+        (json.dumps({"files": {"pl": "pl.json"}}), '"files"'),
+        (
+            json.dumps({"files": {"pl": "pl.json", "en": "missing.json"}}),
+            "do not exist",
+        ),
+    ],
+)
+def test_load_project_errors(tmp_path, content, message):
+    from utils.project import ProjectError, load_project
+
+    (tmp_path / "pl.json").write_text("{}")
+    project_path = tmp_path / "x.project.json"
+    project_path.write_text(content, encoding="utf-8")
+    with pytest.raises(ProjectError, match=message):
+        load_project(project_path)
+
+
+def test_change_files_updates_open_project(tmp_path, monkeypatch):
+    for name in ("pl", "en", "pl2", "en2"):
+        (tmp_path / f"{name}.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(app, "CONFIG_PATH", tmp_path / "config.json")
+    project = app.save_project(
+        tmp_path / "t.project.json", tmp_path / "pl.json", tmp_path / "en.json"
+    )
+    ta = app.TranslationApp(project.pl_path, project.en_path, project=project)
+    seq = [str(tmp_path / "pl2.json"), str(tmp_path / "en2.json")]
+    monkeypatch.setattr(filedialog, "askopenfilename", lambda **k: seq.pop(0))
+    ta.change_files()
+    stored = json.loads((tmp_path / "t.project.json").read_text(encoding="utf-8"))
+    assert stored["files"] == {"pl": "pl2.json", "en": "en2.json"}
+    ta.destroy()
+
+
+def test_tree_shows_pl_and_en_columns(tmp_path, monkeypatch):
+    pl = tmp_path / "pl.json"
+    en = tmp_path / "en.json"
+    pl.write_text(json.dumps({"a": {"b": "Cześć", "c": "Pa"}}), encoding="utf-8")
+    en.write_text(json.dumps({"a": {"b": "Hi"}}), encoding="utf-8")
+    monkeypatch.setattr(app, "CONFIG_PATH", tmp_path / "config.json")
+    ta = app.TranslationApp(str(pl), str(en))
+    (group,) = ta.tree.get_children("")
+    rows = {ta.tree.set(i, "full_key"): i for i in ta.tree.get_children(group)}
+    assert ta.tree.set(rows["a.b"], "pl") == "Cześć"
+    assert ta.tree.set(rows["a.b"], "en") == "Hi"
+    assert "missing" in ta.tree.item(rows["a.c"], "tags")
+    assert ta.count_missing_en() == 1
+
+    ta.search_var.set("hi")
+    (group,) = ta.tree.get_children("")
+    assert [ta.tree.set(i, "full_key") for i in ta.tree.get_children(group)] == ["a.b"]
+    ta.destroy()
 
 
 def test_load_json_malformed(tmp_path):
